@@ -161,6 +161,9 @@ global  code_%3
     ; この時点でスタックは oy!! + 改行
     call code_swap    ; yo!!
     call code_over    ; oyo!!
+    call code_rrot    ; yoo!!
+    call code_rrot    ; ooy!!
+    call code_rrot    ; oyo!!
     call code_rot     ; ooy!!
     call code_drop    ; oy!!
     call code_swap    ; yo!!
@@ -202,7 +205,7 @@ global  code_%3
     ret
 
 ;; ( a b c -- b c a )
-;; スタックの3番目をトップに持ってくる
+;; スタックの3番目をトップに
     defcode "rot", f_inline, rot
     mov  rcx, rbx           ; TOSをrcxに
     mov  rax, [rbp + 8]     ; 2番目をraxに
@@ -210,6 +213,18 @@ global  code_%3
     mov  rbx, [rbp + 16]    ; 3 -> 1
     mov  [rbp + 8], rcx     ; 1 -> 2
     mov  [rbp + 16], rax    ; 2 -> 3
+
+    ret
+
+;; ( a b c -- c a b )
+;; スタックトップを3番目に
+    defcode "-rot", f_inline, rrot
+    mov  rcx, [rbp + 16]    ; 3番目をrcxに
+    mov  rax, [rbp + 8]     ; 2番目をraxに
+    
+    mov  [rbp + 16], rbx    ; 1 -> 3
+    mov  [rbp + 8], rcx     ; 3 -> 2
+    mov  rbx, rax           ; 2 -> 1
 
     ret
 
