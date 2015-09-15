@@ -109,29 +109,38 @@ global  code_%3
     defcode "testcode", 0, testcode
     ; _emitのテスト
     ; ----------------------------------------------------------------------------------------------
-    mov  al, 'H'
-    call _emit
-    mov  al, 0x0A
-    call _emit
+    ; mov  al, 'H'
+    ; call _emit
+    ; mov  al, 0x0A
+    ; call _emit
 
     ; _printのテスト
     ; ----------------------------------------------------------------------------------------------
-    mov  rsi, hmsg
-    mov  rdx, hlen
-    call _print
+    ; mov  rsi, hmsg
+    ; mov  rdx, hlen
+    ; call _print
 
     ; _keyのテスト 2回読み込み出力するので、1文字入力+改行して、1文字1行になることを確かめる
     ; ----------------------------------------------------------------------------------------------
-    call _key
-    call _emit
-    call _key
-    call _emit
+    ; call _key
+    ; call _emit
+    ; call _key
+    ; call _emit
+
+    ; read-tokenのテスト
+    ; ----------------------------------------------------------------------------------------------
+    call code_read_token
+    call code_print
 
     ; スタック操作のテスト yo!!(改行)と表示する
     ; ----------------------------------------------------------------------------------------------
     xor  rax, rax
     mov  al, 0xA    ; 改行
     DPUSH rax
+
+    ; 改行を表示
+    call code_dup
+    call code_emit
 
     mov  al, '!'
     DPUSH rax
@@ -304,8 +313,56 @@ _key:
 .end:
     pop  rbx    ; TOSを戻す
     ret
-    
 
+
+;; read-token  ( -- a u )
+;; スペース、改行、EOFで区切られたトークンを読み込む。_keyを使って1文字ずつ読み込む。
+;; _read_tokenをコールすると、rsiにアドレス、rdxに長さが返る。
+%define MAX_TOKEN_SIZE 256
+section .bss
+token_buff: resb MAX_TOKEN_SIZE
+
+    defcode "read-token", 0, read_token
+    call _read_token
+    DPUSH rsi
+    DPUSH rdx
+    ret
+
+_read_token:
+    push rbx             ; TOSを退避
+    xor  rdx, rdx        ; 長さ
+    mov  rdi, token_buff ; 現在の位置
+
+.read:
+    ; 1文字読み込む
+    push rdx
+    push rdi
+    call _key
+    pop  rdi
+    pop  rdx
+
+    ; 区切り文字かどうかにかかわらず、バッファにコピーする
+    mov  [rdi], al
+    inc  rdi          ; 次の位置へ
+
+    ; 区切り文字なら終了 EOF(0), 改行(0xA), スペース(0x20)
+    cmp  al, 0
+    je   .end
+    cmp  al, 0xA
+    je   .end
+    cmp  al, 0x20
+    je   .end
+
+    ; 文字数をインクリメントして、次の文字へ
+    inc  rdx
+    jmp  .read
+    
+.end:
+    mov  rsi, token_buff
+    pop  rbx    ; TOSを戻す
+    ret
+
+    
 ;; 文字出力
 ;; -------------------------------------------------------------------------------------------------
 ;; emit  ( c -- )  1バイト出力
@@ -383,7 +440,7 @@ set_up_data_segment:
 ;; -------------------------------------------------------------------------------------------------
 section     .bss
 
-align 4096
+alignb 4096
     
 ;; リターンスタックの初期位置
 var_rs0: resb 8
