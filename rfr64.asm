@@ -27,10 +27,10 @@ extern  dlsym
 
 ;; Latest(prev_link)とフラグ
 ;; -------------------------------------------------------------------------------------------------
-%define     prev_link 0
-%define     f_immediate 0000_0001b
-%define     f_hidden    0000_0010b
-%define     f_inline    0000_0100b
+%define prev_link   0
+%define f_immediate 0000_0001b
+%define f_hidden    0000_0010b
+%define f_inline    0000_0100b
 
 
 ;; マクロ定義
@@ -245,8 +245,7 @@ _key:
     jmp  .end
 
 .read:
-;; 改行かEOFまでsys_readで読み込む
-
+    ; 改行かEOFまでsys_readで読み込む
     ; 読み込み先アドレスを指定し、key_curも先頭に戻す
     mov  rsi, key_buff
     mov  [key_cur], rsi
@@ -817,8 +816,8 @@ set_up_data_segment:
 ;; -------------------------------------------------------------------------------------------------
 section .data
 
-var_latest: dq prev_link
-var_base:   dq 10
+var_state: dq 0     ; 0: execute, 1: compile
+var_base:  dq 10
     
 ;; リターンスタックの初期位置
 var_rs0: dq 0
@@ -827,6 +826,7 @@ var_rs0: dq 0
 var_here: dq 0
 var_h0:   dq 0
 
+var_latest: dq prev_link
 
 section     .bss
 
