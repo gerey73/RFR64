@@ -321,7 +321,8 @@ _read_token:
     xor  rdx, rdx        ; 長さ
     mov  rdi, token_buff ; 現在の位置
 
-.read:
+.skip:
+    ; 行頭の区切り文字を飛ばす
     ; 1文字読み込む
     push rdx
     push rdi
@@ -329,6 +330,15 @@ _read_token:
     pop  rdi
     pop  rdx
 
+    ; 区切り文字ならスキップ EOF(0), 改行(0xA), スペース(0x20)
+    cmp  al, 0
+    je   .skip
+    cmp  al, 0xA
+    je   .skip
+    cmp  al, 0x20
+    je   .skip
+    
+.read:
     ; 区切り文字かどうかにかかわらず、バッファにコピーする
     mov  [rdi], al
     inc  rdi          ; 次の位置へ
@@ -341,9 +351,16 @@ _read_token:
     cmp  al, 0x20
     je   .end
 
-    ; 文字数をインクリメントして、次の文字へ
-    inc  rdx
-    jmp  .read
+    ; 文字数インクリメント
+    inc  rdx          
+
+    ; 1文字読み込む
+    push rdx
+    push rdi
+    call _key
+    pop  rdi
+    pop  rdx
+    jmp .read
     
 .end:
     mov  rsi, token_buff
