@@ -62,7 +62,6 @@ main:
     mov  rbp, data_stack_empty ; データスタックを空に
     xor  rbx, rbx
 
-    call set_up_data_segment
     call code_interpreter
     
 
@@ -451,6 +450,19 @@ _codeaddr:
     ret
 
     
+;; >&flag  ( a -- a )
+;; ヘッダアドレスを、フラグアドレスに変換する
+;; rdiに入れて_flagaddrをコールすると、rdiに結果が返る。
+    defcode ">&flag", 0, to_addr_flag
+    DPOP rdi
+    call _flagaddr
+    DPUSH rdi
+    ret
+_flagaddr:
+    add  rdi, 16    ; Link(8) + Code(8)
+    ret
+
+    
 ;; find  ( a u -- a? )
 ;; ワードのヘッダアドレスを探して返す。
 ;; rsiにアドレス、rdxに長さを入れて_findをコールすると、raxに結果が返る。
@@ -488,6 +500,17 @@ _find:
     ; 一致しなかったので次へ
     jne  .next
 
+    ; フラグがhiddenなら飛ばす
+    push rax
+    xor  rax, rax
+    mov  rdi, rbx
+    call _flagaddr
+    mov  al, [rdi]
+    and  al, f_hidden
+    cmp  al, 0
+    pop  rax
+    jne  .next
+
     ; 一致したので、ヘッダアドレスを返す
     mov  rax, rbx
     jmp  .end
@@ -512,7 +535,29 @@ _find:
     call rax
     ret
 
+;; jump  ( a -- )
+;; 絶対アドレスaにjmpする。
+    defcode "jump", 0, jump_absolute
+    DPOP rax
+    jmp  rax
+    ret
+    
+;; [  ( -- )
+;; executeモードに切り替える
+    defcode "[", f_immediate, execute_mode
+    xor  rax, rax
+    mov  [var_state], rax
+    ret
 
+    
+;; ]  ( -- )
+;; compileモードに切り替える
+    defcode "]", 0, compile_mode
+    mov  rax, 1
+    mov  [var_state], rax
+    ret
+
+    
 ;; メモリ操作
 ;; -------------------------------------------------------------------------------------------------
     defcode "@", f_inline, fetch
@@ -524,8 +569,126 @@ _find:
     mov  [rbx], rax
     lea  rbp, [rbp + 8]
     ret
+
+    defcode "c@", f_inline, byte_fetch
+    xor  rax, rax
+    mov  al, [rbx]
+    mov  rbx, rax
+    ret
+
+    defcode "c!", f_inline, byte_store
+    xor  rax, rax
+    mov  rcx,  [rbp + 8]
+    mov  al, cl
+    mov  [rbx], rax
+    lea  rbp, [rbp + 16]
+    mov  rbx, [rbp]
+    ret
+
+    defcode "4c@", f_inline, byte4_fetch
+    xor rax, rax
+    mov eax, [rbx]
+    mov rbx, rax
+    ret
+
+    defcode "4c!", f_inline, byte4_store
+    xor  rax, rax
+    mov  ecx,  [rbp + 8]
+    mov  eax, ecx
+    mov  [rbx], eax
+    lea  rbp, [rbp + 16]
+    mov  rbx, [rbp]
+    ret
     
 
+;; 辞書操作
+;; -------------------------------------------------------------------------------------------------
+;; create-header  ( a u -- )
+;; 渡されたワード名のヘッダを作成する。
+    defcode "create-header", 0, create_header
+    DPOP rdx
+    DPOP rsi
+    push rbx    ; TOS退避
+    
+    ; 辞書ポインタ取得
+    mov  rdi, [var_here]
+    
+    ; latest更新
+    mov  rax, [var_latest]
+    mov  [rdi], rax
+    mov  [var_latest], rdi
+    add  rdi, 8
+
+    ; コード開始アドレスをr8に保存しておく
+    mov  r8, rdi
+    add  rdi, 8
+
+    ; フラグとサイズを0にセット
+    xor  rax, rax
+    mov  [rdi], ax
+    add  rdi, 2
+
+    ; ワード名の長さをセット
+    mov  [rdi], dl
+    inc  rdi
+
+    ; ワード名をコピー
+    push rdi  
+    mov  rcx, rdx    ; 長さ
+    rep movsb        ; コピー先: rdi, コピー元: rsi
+    pop  rdi
+    add  rdi, rdx    ; 辞書ポインタを更新
+
+    ; 辞書ポインタを64bit境界にアライメント
+    add  rdi, 7
+    and  rdi, ~7
+
+    ; コード開始アドレスを保存
+    mov  [r8], rdi
+
+    ; 辞書ポインタ更新
+    mov  [var_here], rdi
+
+    pop  rbx    ; TOSを戻す
+    ret
+
+
+;; hidden  ( -- )
+;; latestワードのhiddenフラグをトグルする。
+    defcode "hidden", 0, hidden
+    mov  rdi, [var_latest]
+    call _flagaddr
+    mov  al, [rdi]
+    xor  al, f_hidden
+    mov  [rdi], al
+    ret
+
+;; :  ( -- )
+;; コロン定義開始
+    defcode ":", 0, colon_start
+    call code_read_token
+    call code_create_header
+    call code_hidden
+    call code_compile_mode
+    ret
+
+
+;; ;  ( -- )
+;; コロン定義終了
+    defcode ";", f_immediate, colon_end
+    call code_execute_mode
+    call code_hidden
+
+    ; ret命令(0xC3)をコンパイルする
+    mov  rdi, [var_here]
+    mov  al, 0xC3
+    mov  [rdi], al
+    inc  rdi
+    mov  [var_here], rdi
+    
+    ret
+
+    
 ;; システム操作
 ;; -------------------------------------------------------------------------------------------------
     defcode "bye", 0, bye
@@ -608,7 +771,7 @@ _find:
     call code_space
     ret
 
-
+    
 ;; >number  ( a u -- n flag )
 ;; 文字列を数字として処理する。大文字A-Zを使った1-16進数が使用可能。var_baseの値で何進数か指定する。
 ;; rsiにアドレス、rdxに長さを指定して_to_numberをコールすると、raxに数値、rcxにフラグが返る。
@@ -723,6 +886,63 @@ _to_number:
     pop  rbx
     ret
 
+
+;; eval-word  ( a -- ... )
+;; ワードのヘッダアドレスを受け取り、モードに合わせて処理する
+    defcode "eval-word", 0, eval_word
+    mov  rax, rbx    ; TOSのワードアドレスを保存
+    push rax
+    
+    ; コードアドレスに変換
+    call code_to_addr_code
+    call code_fetch
+    DPOP rax
+
+    pop  rdi    ; ヘッダアドレスを戻す
+
+    ; executeモードならそのまま実行
+    mov  rdx, [var_state]
+    cmp  rdx, 0
+    je   .execute
+
+    ; immediateワードなら実行
+    call _flagaddr    ; rdiをフラグのアドレスに
+    xor  rcx, rcx
+    mov  cl, [rdi]    ; フラグを取得
+    and  cl, f_immediate
+    cmp  cl, 0
+    jne  .execute
+
+    ; それ以外ならコンパイル
+    jmp  .compile
+
+.execute:
+    DPUSH rax
+    call code_call_absolute
+    ret
+
+.compile:
+    ; raxにコードアドレスが入っているので、そのアドレスへのcallをコンパイルする。
+    mov  rdi, [var_here]    ; 辞書ポインタ
+    xor  rcx, rcx
+    ; callのオフセットは E8 XX XX XX XX の5バイト先から
+    mov  rcx, rdi
+    add  rcx, 5
+    sub  rax, rcx
+
+    ; call命令追加(far call)
+    xor  rcx, rcx
+    mov  cl, 0xE8
+    mov  [rdi], cl
+    inc  rdi
+
+    ; 辞書ポインタ更新
+    mov  [rdi], eax
+    add  rdi, 4
+    mov  [var_here], rdi
+
+    ret
+    
     
 ;; eval-token  ( a u -- ... )
 ;; トークンをモードに合わせて処理する
@@ -759,9 +979,7 @@ word_notfound_len  equ $ - word_notfound_msg
 .found:
     ; ワードが見つかった
     DPUSH rax
-    call code_to_addr_code
-    call code_fetch
-    call code_call_absolute
+    call code_eval_word
     jmp .end
 
 .notfound:
@@ -790,30 +1008,28 @@ word_notfound_len  equ $ - word_notfound_msg
     jmp  .loop
     
 
-%define INITIAL_DATA_SEGMENT_SIZE 65536
-section .text
-set_up_data_segment:
-    push rdi
-
-    ;; データセグメント開始位置を取得
-    xor  rdi, rdi   ; rdi(サイズ)が0なら開始位置を取得できる
-    mov  rax, 12    ; brk
-    syscall
-    mov  [var_here], rax
-    mov  [var_h0], rax
-
-    ;; データセグメント確保
-    add  rax, INITIAL_DATA_SEGMENT_SIZE
-    mov  rdi, rax   ; サイズを指定
-    mov  rax, 12    ; brk
-    syscall
-    
-    pop  rdi
-    ret
-
-
 ;; 変数
 ;; -------------------------------------------------------------------------------------------------
+    defcode "latest", 0, v_latest
+    mov  rax, var_latest
+    DPUSH rax
+    ret
+
+    defcode "state", 0, v_state
+    mov  rax, var_state
+    DPUSH rax
+    ret
+
+    defcode "here", 0, v_here
+    mov  rax, var_here
+    DPUSH rax
+    ret
+
+    defcode "base", 0, v_base
+    mov  rax, var_base
+    DPUSH rax
+    ret
+    
 section .data
 
 var_state: dq 0     ; 0: execute, 1: compile
@@ -823,14 +1039,15 @@ var_base:  dq 10
 var_rs0: dq 0
     
 ;; 辞書アドレス
-var_here: dq 0
-var_h0:   dq 0
+var_here: dq dictionary
+var_h0:   dq dictionary
 
 var_latest: dq prev_link
 
 section     .bss
+alignb 8
 
-alignb 4096
+dictionary: resb 4096
     
 ;; <データスタック>
 ;; rbpがdata_stack_emptyを指している場合、スタックの内容は空。
