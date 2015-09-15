@@ -43,9 +43,9 @@ extern  dlsym
 %endmacro
 
 %macro DPOP 1
+    mov  %1, rbx          ; TOSをレジスタに
     lea  rbp, [rbp + 8]
-    mov  rbx, [rbp]
-    mov  %1, rbx
+    mov  rbx, [rbp]       ; 2番目をTOSに
 %endmacro
 
     
@@ -116,20 +116,64 @@ global  code_%3
     pop  rbx
     ret
 
+    
     defcode "testcode", 0, testcode
     call code_helloworld
 
     ; _emitのテスト
+    ; ----------------------------------------------------------------------------------------------
     mov  al, 'H'
     call _emit
     mov  al, 0x0A
     call _emit
 
     ; _printのテスト
+    ; ----------------------------------------------------------------------------------------------
     mov  rsi, hmsg
     mov  rdx, hlen
     call _print
+
+    ; _keyのテスト 2回読み込み出力するので、1文字入力+改行して、1文字1行になることを確かめる
+    ; ----------------------------------------------------------------------------------------------
+    call _key
+    call _emit
+    call _key
+    call _emit
+
+    ; スタック操作のテスト yo!!(改行)と表示する
+    ; ----------------------------------------------------------------------------------------------
+    xor  rax, rax
+    mov  al, 0xA    ; 改行
+    DPUSH rax
+
+    mov  al, '!'
+    DPUSH rax
+    call code_dup   ; !!
     
+    xor  rax, rax
+    mov  al, 'y'
+    DPUSH rax
+
+    xor  rax, rax
+    mov  al, 'o'
+    DPUSH rax
+
+    ; この時点でスタックは oy!! + 改行
+    call code_swap    ; yo!!
+    call code_over    ; oyo!!
+    call code_rot     ; ooy!!
+    call code_drop    ; oy!!
+    call code_swap    ; yo!!
+    
+    ; スタックトップから5文字表示
+    call code_emit
+    call code_emit
+    call code_emit
+    call code_emit
+    call code_emit
+    
+    ; 終了
+    ; ----------------------------------------------------------------------------------------------
     call code_bye
 
     
@@ -157,13 +201,118 @@ global  code_%3
     DPUSH rax
     ret
 
+;; ( a b c -- b c a )
+;; スタックの3番目をトップに持ってくる
+    defcode "rot", f_inline, rot
+    mov  rcx, rbx           ; TOSをrcxに
+    mov  rax, [rbp + 8]     ; 2番目をraxに
     
+    mov  rbx, [rbp + 16]    ; 3 -> 1
+    mov  [rbp + 8], rcx     ; 1 -> 2
+    mov  [rbp + 16], rax    ; 2 -> 3
+
+    ret
+
+    
+;; 文字入力
+;; -------------------------------------------------------------------------------------------------
+;; key  ( -- c ) 1バイト入力
+;; _keyをコールすると、レジスタalに文字が入る
+section .data
+key_fd:   dq 0    ; 標準入力
+key_tail: dq key_buff    ; 読み込んだ文字の末尾位置(バッファアドレス + バッファに読み込んだ文字数)
+key_cur:  dq key_buff    ; 現在の読み込み位置
+
+section .bss
+key_buff: resb 4096    ; バッファサイズ
+    
+    defcode "key", 0, key
+    xor rax, rax
+    call _key
+    DPUSH rax
+    ret
+
+_key:
+    push rbx    ; TOS退避
+
+.key:
+    ; インプットバッファを処理済みの場合、新しく読み込む
+    mov  rax, [key_cur]
+    cmp  rax, [key_tail]
+    jge  .read
+
+    ; バッファに残っている場合、key_curが次の文字を指しているので読み込み、インクリメントして終了
+    mov  rcx, [key_cur]
+    xor  rax, rax
+    mov  al, [rcx]
+    inc  rcx
+    mov  [key_cur], rcx
+    jmp  .end
+
+.read:
+;; 改行かEOFまでsys_readで読み込む
+
+    ; 読み込み先アドレスを指定し、key_curも先頭に戻す
+    mov  rsi, key_buff
+    mov  [key_cur], rsi
+
+.input:
+;; 改行かEOFまで1文字ずつ読み込む
+    mov  rdi, [key_fd]    ; 読み込み元
+    mov  rdx, 1           ; 1文字
+    xor  rax, rax         ; sys_read
+    syscall
+
+    ; 読み込んだ文字数(rax)が0以下ならEOF
+    cmp  rax, 0
+    jle  .eof
+
+    ; 読み込んだ最初の文字をレジスタに
+    xor  rcx, rcx
+    mov  cl, [rsi]
+
+    ; key_tailを更新
+    add  rsi, rax    ; バッファアドレス + 読み込んだ文字数
+    mov  [key_tail], rsi
+
+    ; 改行かEOFまで読み込み続ける
+    cmp  cl, 0xA
+    jne  .input
+
+    ; バッファを更新したので、1文字返す
+    jmp  .key
+
+.eof:
+    ; 読み込み元が標準入力(0)以外なら閉じる
+    mov  rdi, [key_fd]
+    cmp  rdi, 0
+    je   .close
+    
+    ; 読み込めなかった事を表す0を返す
+    xor  rax, rax
+    jmp  .end
+
+.close:
+    ; 読み込み元ファイルを閉じて、再び改行かEOFまでread
+    mov  rdi, [key_fd]
+    mov  rax, 3          ; close
+    syscall
+    
+    ; とりあえず標準入力に戻す
+    xor  rax, rax
+    mov  [key_fd], rax
+    jmp  .read
+    
+.end:
+    pop  rbx    ; TOSを戻す
+    ret
+    
+
 ;; 文字出力
 ;; -------------------------------------------------------------------------------------------------
-
 ;; emit  ( c -- )  1バイト出力
 ;; レジスタalに1バイト入れて_emitをコールすると、他の組み込みワードからも使える。
-section     .data
+section .data
 emit_buff: dq 0
 
     defcode "emit", 0, emit
