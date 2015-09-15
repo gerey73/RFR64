@@ -409,6 +409,53 @@ _print:
     ret
 
     
+;; 算術演算
+;; -------------------------------------------------------------------------------------------------
+    defcode "+", f_inline, w_add
+    add  rbx, [rbp + 8]
+    lea  rbp, [rbp + 8]
+    ret
+
+    defcode "-", f_inline, w_sub
+    sub  rbx, [rbp + 8]
+    neg  rbx
+    lea  rbp, [rbp + 8]
+    ret
+
+    defcode "*", f_inline, w_mul
+    mov  rax, rbx
+    mov  rcx, [rbp + 8]
+    mul  rcx
+    mov  rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+
+    ;; /mod  ( a b -- div mod )
+    defcode "/mod", f_inline, w_divmod
+    mov  rcx, rbx
+    mov  rax, [rbp + 8]
+    div  rcx
+    mov  [rbp + 8], rax
+    mov  rbx, rdx
+    ret
+
+    defcode "mod", f_inline, w_mod
+    mov  rcx, rbx
+    mov  rax, [rbp + 8]
+    div  rcx
+    mov  rbx, rdx
+    lea  rbp, [rbp + 8]
+    ret
+
+    defcode "/", f_inline, w_div
+    mov  rcx, rbx
+    mov  rax, [rbp + 8]
+    div  rcx
+    mov  rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+    
+    
 ;; Forth処理系関連
 ;; -------------------------------------------------------------------------------------------------
 ;; >&namelen  ( a -- a )
