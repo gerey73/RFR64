@@ -100,26 +100,13 @@ global  code_%3
 ;; Native Word Definition
 ;; =================================================================================================
 
-;; Hello World
+;; テストコード
 ;; -------------------------------------------------------------------------------------------------
     section .data
     hmsg db  'Hello, world!', 0xa
     hlen equ $ - hmsg
 
-    defcode "helloworld", 0, helloworld
-    push rbx
-    mov  rdi,1        ; stdout
-    mov  rsi, hmsg
-    mov  rdx, hlen
-    mov  rax,1        ; sys_write
-    syscall
-    pop  rbx
-    ret
-
-    
     defcode "testcode", 0, testcode
-    call code_helloworld
-
     ; _emitのテスト
     ; ----------------------------------------------------------------------------------------------
     mov  al, 'H'
@@ -209,11 +196,9 @@ global  code_%3
     defcode "rot", f_inline, rot
     mov  rcx, rbx           ; TOSをrcxに
     mov  rax, [rbp + 8]     ; 2番目をraxに
-    
     mov  rbx, [rbp + 16]    ; 3 -> 1
     mov  [rbp + 8], rcx     ; 1 -> 2
     mov  [rbp + 16], rax    ; 2 -> 3
-
     ret
 
 ;; ( a b c -- c a b )
@@ -221,11 +206,9 @@ global  code_%3
     defcode "-rot", f_inline, rrot
     mov  rcx, [rbp + 16]    ; 3番目をrcxに
     mov  rax, [rbp + 8]     ; 2番目をraxに
-    
     mov  [rbp + 16], rbx    ; 1 -> 3
     mov  [rbp + 8], rcx     ; 3 -> 2
     mov  rbx, rax           ; 2 -> 1
-
     ret
 
     
