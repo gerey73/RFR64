@@ -5,6 +5,7 @@
 ;; データスタックはrbxをTOS、スタックポインタにrbpを使う。1cellは64bit。アドレス下位方向に伸びる。
 ;; <ワードのメモリ配置>
 ;; - Link (8bytes)
+;; - Code Address (8bytes)
 ;; - Flags (1byte)
 ;; - Code Size (1byte)  インライン展開用
 ;; - Name Length (1byte)
@@ -81,6 +82,7 @@ align 8
 global header_%3
     header_%3:
     dq prev_link
+    dq code_%3
 %define prev_link header_%3
     db %2
     db 0
@@ -235,7 +237,7 @@ set_up_data_segment:
 section     .bss
 
 align 4096
-
+    
 ;; リターンスタックの初期位置
 var_rs0: resb 8
 
@@ -247,7 +249,6 @@ var_h0:   resb 8
 ;; rbpがdata_stack_emptyを指している場合、スタックの内容は空。
 ;; スタックに1つデータを入れた場合、rbxがTOS、rbpはdata_stack_secondを指す。
 ;; 以降、pushごとにアドレス下位方向に伸びていく。
-data_stack:
-    resb 256
+data_stack:        resb 256
 data_stack_second: resb 8
 data_stack_empty:  resb 8
