@@ -520,6 +520,79 @@ _find:
     
 ;; インタープリタ
 ;; -------------------------------------------------------------------------------------------------
+;; space  ( -- )
+    defcode "space", 0, space
+    mov  rax, ' '
+    call _emit
+    ret
+
+    
+;; cr  ( -- )
+    defcode "cr", 0, cr
+    mov  rax, 0xA
+    call _emit
+    ret
+
+    
+;; . ( n -- )
+;; スタックトップの数値をvar_base進数で表示する。1-16進数が表示可能。
+    defcode ".", 0, dot
+    DPOP rax               ; 数値
+    push rbx               ; TOSを退避
+    xor  rcx, rcx          ; 桁数カウント
+    mov  r8, [var_base]    ; n進数
+    
+    cmp  rax, 0
+    jge  .dot
+
+    ; 負なので符号を表示
+    push rax
+    push rcx
+    push r8
+    mov  al, '-'
+    call _emit
+    pop  r8
+    pop  rcx
+    pop  rax
+    neg  rax
+    
+.dot:
+    xor  rdx, rdx    ; 上位桁
+    div  r8
+    push rdx         ; 最下位桁をpush
+    inc  rcx         ; 桁数を更新
+
+    ; 終了判定
+    cmp  rax, 0
+    jne  .dot
+
+.print:
+    pop  rax        ; 最上位桁をpop
+    dec  rcx
+    
+    cmp  rax, 10    ; 10以上なら、アルファベットで表示
+    jge  .alphabet
+
+    add  rax, '0'
+    jmp  .loop
+    
+.alphabet:
+    add  rax, 'A'
+    jmp .loop
+    
+.loop:
+    push rcx
+    call _emit
+    pop  rcx
+    cmp  rcx, 0
+    jne .print
+
+.end:
+    pop  rbx    ; TOSを戻す
+    call code_space
+    ret
+
+
 ;; >number  ( a u -- n flag )
 ;; 文字列を数字として処理する。大文字A-Zを使った1-16進数が使用可能。var_baseの値で何進数か指定する。
 ;; rsiにアドレス、rdxに長さを指定して_to_numberをコールすると、raxに数値、rcxにフラグが返る。
@@ -536,8 +609,8 @@ _to_number:
     push rbx    ; TOSを退避
 
     ; 数値、ベース
-    xor  rax, rax
-    mov  r8, [var_base]
+    xor  rax, rax          ; 数値
+    mov  r8, [var_base]    ; ベース
     
     ; 符号を判定
     xor  rcx, rcx
@@ -596,12 +669,14 @@ _to_number:
 
     ; 残り文字数を判定
     cmp  rdx, 0
-    jle  .result
+    jle .result
 
     ; 次の桁へ
+    push rdx
     mul  r8
+    pop  rdx
     jmp  .read
-    
+
 .min:
     ; 符号をマイナスに
     mov  rbx, 0
