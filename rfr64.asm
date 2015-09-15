@@ -62,13 +62,9 @@ main:
     mov  rbp, data_stack_empty ; データスタックを空に
     xor  rbx, rbx
 
-    call set_up_data_segment    
-    call cold_start
-
-
-cold_start:
-    call code_testcode
-
+    call set_up_data_segment
+    call code_interpreter
+    
 
 ;; Word Defining Macro
 ;; =================================================================================================
@@ -115,31 +111,16 @@ global  code_%3
     defcode "testcode", 0, testcode
     ; _emitのテスト
     ; ----------------------------------------------------------------------------------------------
-    ; mov  al, 'H'
-    ; call _emit
-    ; mov  al, 0x0A
-    ; call _emit
+    mov  al, 'H'
+    call _emit
+    mov  al, 0x0A
+    call _emit
 
     ; _printのテスト
     ; ----------------------------------------------------------------------------------------------
-    ; mov  rsi, hmsg
-    ; mov  rdx, hlen
-    ; call _print
-
-    ; _keyのテスト 2回読み込み出力するので、1文字入力+改行して、1文字1行になることを確かめる
-    ; ----------------------------------------------------------------------------------------------
-    ; call _key
-    ; call _emit
-    ; call _key
-    ; call _emit
-
-    ; read-token、find、>&codeのテスト  ワード名を読み込んで実行する。(helloworld推奨)
-    ; ----------------------------------------------------------------------------------------------
-    call code_read_token
-    call code_find
-    call code_to_addr_code
-    call code_fetch
-    call code_call_absolute
+    mov  rsi, hmsg
+    mov  rdx, hlen
+    call _print
 
     ; スタック操作のテスト yo!!(改行)と表示する
     ; ----------------------------------------------------------------------------------------------
@@ -180,9 +161,7 @@ global  code_%3
     call code_emit
     call code_emit
     
-    ; 終了
-    ; ----------------------------------------------------------------------------------------------
-    call code_bye
+    ret
 
     
 ;; スタック操作
@@ -468,7 +447,7 @@ _codeaddr:
 
 _find:
     push rbx              ; TOS退避
-    mov  rbx, [latest]    ; 検索開始位置
+    mov  rbx, [var_latest]    ; 検索開始位置
     mov  rcx, rdx         ; 長さをrcxに
     
 .find:
@@ -525,7 +504,8 @@ _find:
     ret
 
     defcode "!", f_inline, store
-    mov  rbx, [rbp + 8]
+    mov  rax, [rbp + 8]
+    mov  [rbx], rax
     lea  rbp, [rbp + 8]
     ret
     
@@ -536,6 +516,187 @@ _find:
     xor  rdi, rdi  ; 終了コード
     mov  rax, 60   ; sys_exit
     syscall
+
+    
+;; インタープリタ
+;; -------------------------------------------------------------------------------------------------
+;; >number  ( a u -- n flag )
+;; 文字列を数字として処理する。大文字A-Zを使った1-16進数が使用可能。var_baseの値で何進数か指定する。
+;; rsiにアドレス、rdxに長さを指定して_to_numberをコールすると、raxに数値、rcxにフラグが返る。
+;; flagが0なら解釈失敗。
+    defcode ">number", 0, to_number
+    DPOP rdx
+    DPOP rsi
+    call _to_number
+    DPUSH rax
+    DPUSH rcx
+    ret
+    
+_to_number:
+    push rbx    ; TOSを退避
+
+    ; 数値、ベース
+    xor  rax, rax
+    mov  r8, [var_base]
+    
+    ; 符号を判定
+    xor  rcx, rcx
+    mov  bl, '-'
+    mov  cl, [rsi]
+    cmp  cl, bl
+    je   .min
+
+    ; 符号を表す数値を置く。0なら負、それ以外なら正の数とする。
+    mov  rbx, 1
+    push rbx
+    
+.read:
+    ; 文字取得
+    xor  rcx, rcx
+    mov  cl, [rsi]
+    
+    ; アスキーコード'0'未満
+    mov  bl, '0'
+    cmp  cl, bl
+    jb   .notnumber
+
+    ; アスキーコード'0'-'9'  '9'は0x39
+    mov  bl, 0x3A
+    cmp  cl, bl
+    jb   .ascii_num
+
+    ; アスキーコード 0x39以上、0x41未満  'A'は0x41
+    mov  bl, 0x41
+    cmp  cl, bl
+    jb   .notnumber
+
+    ; アスキーコード 'G'以上
+    mov  bl, 'G'
+    cmp  cl, bl
+    jge  .notnumber
+
+.ascii_char:
+    ; アスキーコード A - F の場合
+    mov  bl, 'A'
+    sub  cl, bl
+    add  cl, 10
+    add  rax, rcx
+    jmp  .next
+    
+.ascii_num:
+    ; アスキーコード 0 - 9 の場合
+    mov  bl, '0'
+    sub  cl, bl
+    add  rax, rcx
+    jmp  .next
+
+.next:
+    inc  rsi
+    dec  rdx
+
+    ; 残り文字数を判定
+    cmp  rdx, 0
+    jle  .result
+
+    ; 次の桁へ
+    mul  r8
+    jmp  .read
+    
+.min:
+    ; 符号をマイナスに
+    mov  rbx, 0
+    push rbx
+    ; 符号の分進める
+    inc  rsi
+    dec  rdx
+    jmp  .read
+    
+.result:
+    ; フラグを設定
+    mov  rcx, 1
+    
+    ; 符号を与える
+    pop  rbx
+    cmp  rbx, 0
+    jne  .end
+    neg  rax
+    jmp  .end
+    
+.notnumber:
+    ; 数字として解釈できなかった
+    pop  rax         ; 符号を取り除く
+    xor  rax, rax
+    xor  rcx, rcx
+    
+.end:
+    pop  rbx
+    ret
+
+    
+;; eval-token  ( a u -- ... )
+;; トークンをモードに合わせて処理する
+word_notfound_msg: db "Word not found: "
+word_notfound_len  equ $ - word_notfound_msg
+    
+    defcode "eval-token", 0, eval_token
+    DPOP rdx
+    DPOP rsi
+
+    ; find
+    push rdx    ; 名前を退避
+    push rsi
+    call _find
+    pop  rsi    ; 名前を戻す
+    pop  rdx
+
+    cmp  rax, 0
+    jne  .found
+
+    ; ワードが見つからなかった場合
+    ; とりあえず数字として処理
+    push rdx
+    push rsi
+    call _to_number
+    pop  rsi
+    pop  rdx
+    cmp  rcx, 0
+    je   .notfound    ; 数字としても処理できなかった
+    
+    DPUSH rax
+    jmp  .end
+    
+.found:
+    ; ワードが見つかった
+    DPUSH rax
+    call code_to_addr_code
+    call code_fetch
+    call code_call_absolute
+    jmp .end
+
+.notfound:
+    ; 数字としても処理できなかった場合
+    push rdx
+    push rsi
+    mov  rsi, word_notfound_msg
+    mov  rdx, word_notfound_len
+    call _print    ; "Word not found: "
+    pop  rsi
+    pop  rdx
+    call _print        ; ワード名出力
+    mov  rax, 0xA      ; 改行 
+    call _emit
+    
+.end:
+    ret
+
+
+;; interpreter  ( -- )
+;; READ-EVAL-LOOP
+    defcode "interpreter", 0, interpreter
+.loop:
+    call code_read_token
+    call code_eval_token    
+    jmp  .loop
     
 
 %define INITIAL_DATA_SEGMENT_SIZE 65536
@@ -560,11 +721,12 @@ set_up_data_segment:
     ret
 
 
-;; Data Section
+;; 変数
 ;; -------------------------------------------------------------------------------------------------
 section .data
-;; latest
-latest: dq prev_link
+
+var_latest: dq prev_link
+var_base:   dq 10
     
 ;; リターンスタックの初期位置
 var_rs0: dq 0
