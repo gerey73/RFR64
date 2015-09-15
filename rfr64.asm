@@ -650,6 +650,16 @@ _find:
 
 ;; 辞書操作
 ;; -------------------------------------------------------------------------------------------------
+;; lit  ( -- n )
+;; 辞書で call code_lit の次の位置にある8バイトをスタックに置く
+    defcode "lit", 0, lit
+    pop   rdi
+    mov   rax, [rdi]
+    add   rdi, 8
+    push  rdi
+    DPUSH rax
+    ret
+    
 ;; create-header  ( a u -- )
 ;; 渡されたワード名のヘッダを作成する。
     defcode "create-header", 0, create_header
@@ -977,7 +987,7 @@ _to_number:
     add  rcx, 5
     sub  rax, rcx
 
-    ; call命令追加(far call)
+    ; call命令追加
     xor  rcx, rcx
     mov  cl, 0xE8
     mov  [rdi], cl
@@ -986,6 +996,48 @@ _to_number:
     ; 辞書ポインタ更新
     mov  [rdi], eax
     add  rdi, 4
+    mov  [var_here], rdi
+
+    ret
+
+
+;; eval-number  ( n -- ... )
+;; モードに合わせて数字を処理する。コンパイルモードの場合、 call lit [8byte] の形にコンパイルする。
+    defcode "eval-number", 0, eval_number    
+    ; compileモード
+    mov  rdx, [var_state]
+    cmp  rdx, 1
+    je   .compile
+
+    ; executeモードならそのままスタックに置いておく
+    ret
+
+.compile:
+    ; E8 [ litのアドレス ] にコンパイルする
+    mov  rax, code_lit
+    mov  rdi, [var_here]    ; 辞書ポインタ
+    xor  rcx, rcx
+    ; callのオフセットは E8 XX XX XX XX の5バイト先から
+    mov  rcx, rdi
+    add  rcx, 5
+    sub  rax, rcx
+
+    ; call命令追加
+    xor  rcx, rcx
+    mov  cl, 0xE8
+    mov  [rdi], cl
+    inc  rdi
+
+    ; オフセット設置
+    mov  [rdi], eax
+    add  rdi, 4
+
+    ; 数値を辞書に置く
+    DPOP rax
+    mov  [rdi], rax
+    add  rdi, 8
+
+    ; 辞書ポインタ更新
     mov  [var_here], rdi
 
     ret
@@ -1019,9 +1071,10 @@ word_notfound_len  equ $ - word_notfound_msg
     pop  rdx
     cmp  rcx, 0
     je   .notfound    ; 数字としても処理できなかった
-    
+
     DPUSH rax
-    jmp  .end
+    call  code_eval_number
+    jmp   .end
     
 .found:
     ; ワードが見つかった
