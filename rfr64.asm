@@ -106,6 +106,12 @@ global  code_%3
     hmsg db  'Hello, world!', 0xa
     hlen equ $ - hmsg
 
+    defcode "helloworld", 0, helloworld
+    mov  rsi, hmsg
+    mov  rdx, hlen
+    call _print
+    ret
+
     defcode "testcode", 0, testcode
     ; _emitのテスト
     ; ----------------------------------------------------------------------------------------------
@@ -127,10 +133,13 @@ global  code_%3
     ; call _key
     ; call _emit
 
-    ; read-tokenのテスト
+    ; read-token、find、>&codeのテスト  ワード名を読み込んで実行する。(helloworld推奨)
     ; ----------------------------------------------------------------------------------------------
     call code_read_token
-    call code_print
+    call code_find
+    call code_to_addr_code
+    call code_fetch
+    call code_call_absolute
 
     ; スタック操作のテスト yo!!(改行)と表示する
     ; ----------------------------------------------------------------------------------------------
@@ -389,7 +398,7 @@ _emit:
     ret
 
     
-;; print  ( addr len -- )  文字列出力
+;; print  ( a u -- )  文字列出力
 ;; レジスタrsiにアドレス、rdxに長さを入れて_printをコールすると、他の組み込みワードからも使える。
     defcode "print", 0, print
     DPOP  rdx
@@ -405,6 +414,121 @@ _print:
     pop  rbx      ; TOSを戻す
     ret
 
+    
+;; Forth処理系関連
+;; -------------------------------------------------------------------------------------------------
+;; >&namelen  ( a -- a )
+;; ヘッダアドレスを、ワード名の長さを記録するアドレスに変換する。
+;; rdiに入れて_namelenをコールすると、rdiに結果が返る。
+    defcode ">&namelen", 0, to_addr_namelen
+    DPOP rdi
+    call _namelen
+    DPUSH rdi
+    ret
+_namelen:
+    add  rdi, 18    ; Link(8) + Code(8) + Flags(1) + Size(1)
+    ret
+
+;; >&name  ( a -- a )
+;; ヘッダアドレスを、ワード名のアドレスに変換する。
+;; rdiに入れて_nameaddrをコールすると、rdiに結果が返る。
+    defcode ">&name", 0, to_addr_name
+    DPOP rdi
+    call _nameaddr
+    DPUSH rdi
+    ret
+_nameaddr:
+    call _namelen
+    add  rdi, 1    ; NameLen(1)
+    ret
+    
+    
+;; >&code-addr  ( a -- a )
+;; ヘッダアドレスを、コードアドレスに変換する
+;; rdiに入れて_codeaddrをコールすると、rdiに結果が返る。
+    defcode ">&code", 0, to_addr_code
+    DPOP rdi
+    call _codeaddr
+    DPUSH rdi
+    ret
+_codeaddr:
+    add  rdi, 8    ; Link(8)
+    ret
+
+    
+;; find  ( a u -- a? )
+;; ワードのヘッダアドレスを探して返す。
+;; rsiにアドレス、rdxに長さを入れて_findをコールすると、raxに結果が返る。
+    defcode "find", 0, find
+    DPOP rdx
+    DPOP rsi
+    call _find
+    DPUSH rax
+    ret
+
+_find:
+    push rbx              ; TOS退避
+    mov  rbx, [latest]    ; 検索開始位置
+    mov  rcx, rdx         ; 長さをrcxに
+    
+.find:
+    ; 長さが同じかどうか調べる
+    xor  rax, rax
+    mov  rdi, rbx    ; 検索対象
+    call _namelen    ; rdiに長さのアドレスが返ってくる
+    mov  al, [rdi]
+    cmp  al, cl
+    jne  .next       ; 長さが違うので次へ
+
+    ; repeを使って名前が一致するか調べる
+    ; rsiとrdiに開始アドレス、rcxに長さを入れる
+    mov  rdi, rbx
+    call _nameaddr   ; rdiに名前の位置が返ってくる
+    push rsi
+    push rcx
+    repe cmpsb
+    pop  rcx
+    pop  rsi
+
+    ; 一致しなかったので次へ
+    jne  .next
+
+    ; 一致したので、ヘッダアドレスを返す
+    mov  rax, rbx
+    jmp  .end
+    
+.next:
+    mov  rbx, [rbx]    ; 次のワードへ。Linkは先頭
+    cmp  rbx, 0        ; まだ検索対象があれば、続ける
+    jne  .find
+    
+    ; 検索対象がもう無いので、0を返す
+    xor rax, rax
+
+.end:
+    pop  rbx    ; TOSを戻す
+    ret
+
+
+;; call  ( a -- )
+;; 絶対アドレスaをcallする。
+    defcode "call", 0, call_absolute
+    DPOP rax
+    call rax
+    ret
+
+
+;; メモリ操作
+;; -------------------------------------------------------------------------------------------------
+    defcode "@", f_inline, fetch
+    mov rbx, [rbx]
+    ret
+
+    defcode "!", f_inline, store
+    mov  rbx, [rbp + 8]
+    lea  rbp, [rbp + 8]
+    ret
+    
 
 ;; システム操作
 ;; -------------------------------------------------------------------------------------------------
@@ -438,17 +562,22 @@ set_up_data_segment:
 
 ;; Data Section
 ;; -------------------------------------------------------------------------------------------------
+section .data
+;; latest
+latest: dq prev_link
+    
+;; リターンスタックの初期位置
+var_rs0: dq 0
+    
+;; 辞書アドレス
+var_here: dq 0
+var_h0:   dq 0
+
+
 section     .bss
 
 alignb 4096
     
-;; リターンスタックの初期位置
-var_rs0: resb 8
-
-;; 辞書アドレス
-var_here: resb 8
-var_h0:   resb 8
-
 ;; <データスタック>
 ;; rbpがdata_stack_emptyを指している場合、スタックの内容は空。
 ;; スタックに1つデータを入れた場合、rbxがTOS、rbpはdata_stack_secondを指す。
