@@ -44,3 +44,6 @@ var: here.old
 : does>
    [compile] lit  here @  cell allot  [compile] (does)  [ret]
    here @ swap !  DODOES compile-call ; immediate
+
+: const>  create ,  does> @ ;
+: >body   >&code @  5 + ;
