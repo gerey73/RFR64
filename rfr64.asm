@@ -873,6 +873,16 @@ _compile:
     ret
 
 
+;; immediate  ( -- )
+;; latestワードのimmediateフラグをトグルする。
+    defcode "immediate", f_immediate, immediate
+    mov  rdi, [var_latest]
+    call _flagaddr
+    mov  al, [rdi]
+    xor  al, f_immediate
+    mov  [rdi], al
+    ret
+
 ;; hidden  ( -- )
 ;; latestワードのhiddenフラグをトグルする。
     defcode "hidden", 0, hidden
