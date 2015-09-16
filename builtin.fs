@@ -16,6 +16,7 @@
 : [compile]   ( -- )  | 次の命令をコンパイルするコード、をコンパイルする。
    ' lit compile  read-token find ,  ' compile compile ; immediate
 
+: >code  ( -- )  >&code @ ;  | コードアドレスを直接取得する。
 
 | 制御構造
 | ------------------------------------------------------------------------------
@@ -61,6 +62,13 @@ var: here.old
 ( CONSTANT )
 : const>  create ,  does> @ ;
 : >body   >&code @  5 + ;
+
+
+| 再帰
+| ------------------------------------------------------------------------------
+: recur  ( -- )   latest @ compile ; immediate
+: trec   ( -- )  | ブランチによる再帰。(最適化された末尾再帰的なもの)
+   [compile] branch  latest @ >code  here @ - 4c, ; immediate
 
 
 | 文字列
