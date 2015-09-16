@@ -218,3 +218,45 @@ reveal>>
    scs-closer: }
    scs-closer: ]
 /private
+
+
+| Record
+| ------------------------------------------------------------------------------
+| Reforthを参考にした、名前を先頭で定義できる構造体。
+| <例>
+| record MixedJuice
+|   cell field: banana
+|   cell field: apple
+|   cell field: orange
+| end
+| : mix  ( rec -- n )  dup banana @  over apple @  over orange @  + + ;
+| MixedJuice m
+| m banana @ .  ( => 0 )
+| 50 m apple !
+| 30 m orange !
+| 20 m banana !
+| mix .         ( => 100 )
+
+private/
+   create name-buff  128 allot
+   var: name-len
+   : buff-name   ( a u -- )   dup name-len !  name-buff block-copy ;
+
+   : field-addr  ( &rec &o -- &field )  @ + ;
+
+   : close-record  ( size -- )
+      name-buff name-len @ create-header
+      [compile] create
+      [compile] lit
+      ,
+      [compile] allot
+      [ret] ;
+reveal>>
+   : record  ( -- o )
+      read-token buff-name
+      ' close-record scs-push
+      0 ( オフセット ) ;
+   : field:  ( o u -- o )
+      create over , +  ( オフセットを更新する )
+      does>  field-addr ;
+/private
