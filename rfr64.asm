@@ -558,6 +558,15 @@ _print:
     defcode "0<=", f_inline, zle
     zcompare setle
 
+    defcode "?dup", 0, ifdup
+    ; スタックトップが0でなければdupする。 dup if ... then drop のイディオムを短くできる。
+    cmp  rbx, 0
+    je   .next
+    mov  rax, rbx
+    DPUSH rax
+.next:
+    ret
+
 
 ;; ビット比較・操作
 ;; -------------------------------------------------------------------------------------------------

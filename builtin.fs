@@ -27,7 +27,6 @@
 : else  ( a -- a )  [compile]  branch  offset-space swap save-offset ; immediate
 : then  ( a --   )  save-offset ; immediate
 
-
 : back-branch  ( a -- )  [compile] branch  here @ - 4c, ;
 : begin  (   -- a )  here @ ; immediate
 : until  ( a --   )  [compile] 0branch  here @ - 4c,  ; immediate
@@ -122,3 +121,39 @@ create strbuff 512 allot    ( 文字列リテラル用バッファ )
    [postpone] s"
    execute-mode?  if print exit then
    [compile] print ; immediate
+
+
+| Private
+| ------------------------------------------------------------------------------
+| Retroを参考にしたPrivateなワードの名前空間定義。
+| private/ /privateで囲まれた部分でのワード定義は、外(後)からは見えなくなる。
+| ただし、private中にreveal>>を使うと、それ以降のワードは外(後)からも見え、
+| かつprivateなワードも使うことができる。
+| 制限として、reveal>>の次はコロン定義やcreateなど、ワードヘッダを定義する
+| ものから始める必要がある。
+|
+| <例>
+| private/
+|    : yo  ." yo!" ;
+|    reveal>>
+|    : greeting  yo ;
+| /private
+| yo        ( Notfound... )
+| greeting  ( => yo!      )
+|
+| <実装>
+| - private/ で、その時点でのlatestを保存する。reveal-startを0にクリア。
+| - reveal>> で、その時点での辞書アドレスをreveal-startに保存する。
+|   制限は、ここにlatestを変更すべきワードが来ることを期待するためにある。
+| - /privateで、reveal-startが0ならばそのままlatestを戻す。
+|   0でなければ、revealを開始すべき最初のワードのlatestを、保存しておいた
+|   latestで書き換える。これによってprivate部分を飛ばすことができる。
+
+var: private-latest
+var: reveal-start
+
+: private/  ( -- )  latest @ private-latest !  0 reveal-start ! ;
+: reveal>>  ( -- )  here @ reveal-start ! ;
+: /private  ( -- )
+   private-latest @
+   reveal-start @  ?dup if ! exit then  latest ! ;
