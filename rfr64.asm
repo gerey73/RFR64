@@ -479,6 +479,88 @@ _print:
     ret
 
 
+;; 比較
+;; -------------------------------------------------------------------------------------------------
+%macro compare 1    ; opcode
+    mov rax, [rbp + 8]
+    cmp rax,rbx
+    %1  bl
+    movzx rbx, bl
+    lea  rbp, [rbp + 8]
+    ret
+%endmacro
+
+    defcode "=", f_inline, w_equ
+    compare sete
+
+    defcode "<>", f_inline, neq
+    compare setne
+
+    defcode ">", f_inline, gt
+    compare setg
+
+    defcode "<", f_inline, lt
+    compare setl
+
+    defcode ">=", f_inline, ge
+    compare setge
+
+    defcode "<=", f_inline, le
+    compare setle
+
+
+%macro zcompare 1
+    cmp rbx, 0
+    %1  bl
+    movzx rbx, bl
+    lea rbp, [rbp + 8]
+    ret
+%endmacro
+
+    defcode "0=", f_inline, zequ
+    zcompare sete
+
+    defcode "0<>", f_inline, zneq
+    zcompare setne
+
+    defcode "0>", f_inline, zgt
+    zcompare setg
+
+    defcode "0<", f_inline, zlt
+    zcompare setl
+
+    defcode "0>=", f_inline, zge
+    zcompare setge
+
+    defcode "0<=", f_inline, zle
+    zcompare setle
+
+
+;; ビット比較・操作
+;; -------------------------------------------------------------------------------------------------
+    defcode "and", f_inline, wand
+    mov  rax, [rbp + 8]
+    and  rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+
+    defcode "or", f_inline, wor
+    mov  rax, [rbp + 8]
+    or   rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+
+    defcode "xor", f_inline, wxor
+    mov  rax, [rbp + 8]
+    xor  rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+
+    defcode "invert", f_inline, winvert
+    not  rbx
+    ret
+
+
 ;; Forth処理系関連
 ;; -------------------------------------------------------------------------------------------------
 ;; >&namelen  ( a -- a )
