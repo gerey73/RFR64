@@ -192,3 +192,29 @@ private/
    : make-stack:  ( n -- )
       create-stack create-sp create-push create-pop ;
 /private
+
+
+| Structure Closer Stack (SCS)
+| ------------------------------------------------------------------------------
+| クォーテーションや配列リテラルなどコードに構造を与えるとき、endなどの共通な
+| ワードでその構造を閉じるために使う。
+| 閉じるワード end ] } などは、すべてimmediateワード。
+| <例>
+| : closer  ( noop ) ;
+| : start   ' closer scs-push ;
+| start  ...  end
+
+private/
+   8 cells make-stack:  scs-stack scs-sp scs-push scs-pop
+
+   : scs-closer:  ( -- )
+     create  ( noop )  [postpone] immediate
+     does>   drop scs-pop call ;
+
+reveal>>
+   : scs-push  ( a -- )  >code scs-push ;
+
+   scs-closer: end
+   scs-closer: }
+   scs-closer: ]
+/private
