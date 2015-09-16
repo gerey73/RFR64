@@ -1088,6 +1088,45 @@ DODOES:
     ret
 
 
+;; |  ( -- )
+;; 行コメント
+    defcode "|", f_immediate, line_comment
+    ; トークンの区切り文字 (2バイト目) が改行又はEOFの場合、終了
+    mov  al, [token_buff + 1]
+    mov  cl, 0xA
+    cmp  al, cl
+    je   .end
+    cmp  al, 0
+    je   .end
+
+.loop:
+    ; keyで1文字読み込み、改行又はEOFまで捨て続ける
+    call _key
+
+    mov  cl, 0xA
+    cmp  al, cl
+    je   .end
+    cmp  al, 0
+    je   .end
+
+    jmp  .loop    ; skip
+
+.end:
+    ret
+
+;; (  ( -- )
+;; カッココメント
+    defcode "(", f_immediate, paren_comment
+    ; keyで1文字読み込み、閉じカッコが来るまで捨て続ける
+.loop:
+    call _key
+    mov  cl, ')'
+    cmp  al, cl
+    jne  .loop
+.end:
+    ret
+
+
 ;; . ( n -- )
 ;; スタックトップの数値をvar_base進数で表示する。1-16進数が表示可能。
     defcode ".", 0, dot
