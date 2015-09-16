@@ -612,13 +612,37 @@ _find:
     jmp  rax
     ret
 
+;; branch  ( -- )
+;; ワードbranchへのcallの次4byteをオフセットとして取得し、相対ジャンプを行う。
+;; オフセット開始点は、オフセット値が入っている辞書アドレスから。(call branchの元のリターン先から)
+    defcode "branch", 0, branch
+    pop  rax           ; オフセットアドレスが入っている / 相対ジャンプの開始点
+    xor  rcx, rcx
+    mov  ecx, [rax]    ; オフセット
+
+    ; オフセットを加算してジャンプする
+    ; popしているのでretする必要無し
+    add  eax, ecx
+    jmp  rax
+
+;; 0branch  ( x -- )
+;; スタックトップが0ならbranch、そうでなければオフセットを飛ばしてそのまま進む。
+    defcode "0branch", 0, zbranch
+    DPOP rax
+    cmp  rax, 0
+    je   code_branch
+
+    ; スキップ
+    pop  rax
+    add  rax, 4    ; オフセットアドレスを飛ばす
+    jmp  rax       ; 次へ
+
 ;; [  ( -- )
 ;; executeモードに切り替える
     defcode "[", f_immediate, execute_mode
     xor  rax, rax
     mov  [var_state], rax
     ret
-
 
 ;; ]  ( -- )
 ;; compileモードに切り替える
@@ -706,6 +730,19 @@ _find:
     mov  [var_here], rdi
     ret
 
+;; 4c,  ( n -- )
+;; 辞書に値n(4byte)を置いて、辞書ポインタを更新
+    defcode "4c,", 0, byte4comma
+    DPOP rax
+    xor  rcx, rcx
+    mov  ecx, eax
+    mov  rdi, [var_here]
+    mov  [rdi], ecx
+    add  rdi, 4
+    mov  [var_here], rdi
+    ret
+
+
 ;; compile  ( a -- )
 ;; ワードのヘッダアドレスaから、そのワードへのcallを現在の辞書にコンパイルする。
 ;; raxにコードアドレスを入れ、_compileをコールしても使える。rdiに現在の辞書アドレスが入って返る。
@@ -713,12 +750,12 @@ _find:
     DPOP rdi
     call _codeaddr
     mov  rax, rdi
-    
+
 _compile:
     ; rdi以外のレジスタ退避
     push rcx
     push rax
-    
+
     mov  rdi, [var_here]    ; 辞書ポインタ
     xor  rcx, rcx
     ; callのオフセットは E8 XX XX XX XX の5バイト先から
@@ -766,7 +803,7 @@ _compile:
     ; ワード名が見つからなかった場合、そのまま終了
     ; TODO: エラーメッセージ表示
     ret
-    
+
 .compile:
     ; rbxにワードのヘッダアドレスが入っている
     mov  rax, code_lit
