@@ -746,6 +746,24 @@ _find:
     mov  rbx, [rbp]
     ret
 
+    defcode "+!", f_inline, add_store
+    mov  rax, [rbp + 8 ]    ; 足す数値
+    mov  rcx, [rbx]         ; メモリの内容
+    add  rcx, rax
+    mov  [rbx], rcx
+    lea  rbp, [rbp + 16]
+    mov  rbx, [rbp]
+    ret
+
+    defcode "-!", f_inline, sub_store
+    mov  rax, [rbp + 8 ]    ; 足す数値
+    mov  rcx, [rbx]         ; メモリの内容
+    sub  rcx, rax
+    mov  [rbx], rcx
+    lea  rbp, [rbp + 16]
+    mov  rbx, [rbp]
+    ret
+
     defcode "c@", f_inline, byte_fetch
     xor  rax, rax
     mov  al, [rbx]
