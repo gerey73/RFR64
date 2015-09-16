@@ -507,7 +507,7 @@ _nameaddr:
     ret
 
 
-;; >&code-addr  ( a -- a )
+;; >&code  ( a -- a )
 ;; ヘッダアドレスを、コードアドレスに変換する
 ;; rdiに入れて_codeaddrをコールすると、rdiに結果が返る。
     defcode ">&code", 0, to_addr_code
@@ -705,6 +705,86 @@ _find:
     inc  rdi
     mov  [var_here], rdi
     ret
+
+;; compile  ( a -- )
+;; ワードのヘッダアドレスaから、そのワードへのcallを現在の辞書にコンパイルする。
+;; raxにコードアドレスを入れ、_compileをコールしても使える。rdiに現在の辞書アドレスが入って返る。
+    defcode "compile", 0, compile_word
+    DPOP rdi
+    call _codeaddr
+    mov  rax, rdi
+    
+_compile:
+    ; rdi以外のレジスタ退避
+    push rcx
+    push rax
+    
+    mov  rdi, [var_here]    ; 辞書ポインタ
+    xor  rcx, rcx
+    ; callのオフセットは E8 XX XX XX XX の5バイト先から
+    mov  rcx, rdi
+    add  rcx, 5
+    sub  rax, rcx
+
+    ; call命令追加
+    xor  rcx, rcx
+    mov  cl, 0xE8
+    mov  [rdi], cl
+    inc  rdi
+
+    ; オフセット設置
+    mov  [rdi], eax
+    add  rdi, 4
+
+    ; 辞書ポインタ更新
+    mov  [var_here], rdi
+
+    ; レジスタ復帰
+    pop  rax
+    pop  rcx
+    ret
+
+
+;; '  ( -- )
+;; 次のワード名のヘッダアドレスをスタックに置く
+;; コンパイルモードの場合は、lit addr の形にコンパイルする
+    defcode "'", f_immediate, tick
+    call code_read_token    ; ( -- a u )
+    call code_find          ; ( -- a )
+    cmp  rbx, 0
+    je   .notfound
+
+    ; コンパイルモードの場合
+    mov  rcx, [var_state]
+    cmp  rcx, 1
+    je   .compile
+
+    ; 実行モードの場合、そのまま置いて終了
+    ret
+
+.notfound:
+    ; ワード名が見つからなかった場合、そのまま終了
+    ; TODO: エラーメッセージ表示
+    ret
+    
+.compile:
+    ; rbxにワードのヘッダアドレスが入っている
+    mov  rax, code_lit
+    call _compile
+
+    ; ワードアドレス設置
+    mov  [rdi], rbx
+    add  rdi, 8
+
+    ; TOS更新
+    lea  rbp, [rbp - 8]
+    mov  rbx, [rbp]
+
+    ; 辞書ポインタ更新
+    mov  [var_here], rdi
+
+    ret
+
 
 ;; create-header  ( a u -- )
 ;; 渡されたワード名のヘッダを作成する。
@@ -1026,24 +1106,7 @@ _to_number:
 
 .compile:
     ; raxにコードアドレスが入っているので、そのアドレスへのcallをコンパイルする。
-    mov  rdi, [var_here]    ; 辞書ポインタ
-    xor  rcx, rcx
-    ; callのオフセットは E8 XX XX XX XX の5バイト先から
-    mov  rcx, rdi
-    add  rcx, 5
-    sub  rax, rcx
-
-    ; call命令追加
-    xor  rcx, rcx
-    mov  cl, 0xE8
-    mov  [rdi], cl
-    inc  rdi
-
-    ; 辞書ポインタ更新
-    mov  [rdi], eax
-    add  rdi, 4
-    mov  [var_here], rdi
-
+    call _compile
     ret
 
 
@@ -1061,22 +1124,7 @@ _to_number:
 .compile:
     ; E8 [ litのアドレス ] にコンパイルする
     mov  rax, code_lit
-    mov  rdi, [var_here]    ; 辞書ポインタ
-    xor  rcx, rcx
-    ; callのオフセットは E8 XX XX XX XX の5バイト先から
-    mov  rcx, rdi
-    add  rcx, 5
-    sub  rax, rcx
-
-    ; call命令追加
-    xor  rcx, rcx
-    mov  cl, 0xE8
-    mov  [rdi], cl
-    inc  rdi
-
-    ; オフセット設置
-    mov  [rdi], eax
-    add  rdi, 4
+    call _compile    ; rdiに辞書の最新位置が入ってくる
 
     ; 数値を辞書に置く
     DPOP rax
