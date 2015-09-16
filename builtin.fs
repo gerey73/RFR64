@@ -157,3 +157,38 @@ var: reveal-start
 : /private  ( -- )
    private-latest @
    reveal-start @  ?dup if ! exit then  latest ! ;
+
+
+| Stack Maker
+| ------------------------------------------------------------------------------
+| サイズ(バイト数)を指定してスタックを作れる。スタックの1セルは8byte固定。
+| スタックはアドレスが大きい方向に伸びる。push, pop 用のワードも定義できる。
+| TODO: under/overのエラー処理
+|
+| <例>
+| 30 cells make-stack: astack asp apush apop    ( stack, sp, push, popの順番 )
+| 50 apush
+| 30 apush
+| apop .      ( => 30 )
+| apop .      ( => 50 )
+
+private/
+   var: sp
+   var: stack
+   : create-stack  ( n -- )
+      create  here @  dup sp ! stack !  allot ;
+   : create-sp  ( n -- )
+      create  sp ,  does> @ @ ;
+
+   : create-push  ( -- )
+      create  ( none )
+      does>  ( n a -- )  drop  sp @ !  8 sp +! ;
+
+   : create-pop  ( -- )
+      create  ( none )
+      does>  ( -- n )  8 sp -!  sp @ @ ;
+
+   reveal>>
+   : make-stack:  ( n -- )
+      create-stack create-sp create-push create-pop ;
+/private
