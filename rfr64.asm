@@ -750,6 +750,7 @@ _find:
     DPOP rdi
     call _codeaddr
     mov  rax, rdi
+    mov  rax, [rax]
 
 _compile:
     ; rdi以外のレジスタ退避
