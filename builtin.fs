@@ -10,3 +10,6 @@
 : until  ' 0branch compile  here @ - 4c,  ; immediate
 : again  back-branch  ; immediate
 
+: [postpone]  read-token find compile ; immediate
+: while   [postpone] if ; immediate
+: repeat  swap back-branch  save-offset ; immediate
