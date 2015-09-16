@@ -62,9 +62,32 @@ main:
     mov  rbp, data_stack_empty ; データスタックを空に
     xor  rbx, rbx
 
+    call setup_data_segment
     call code_interpreter
-    
 
+    
+;; データセグメント設定
+;; =================================================================================================
+%define INITIAL_DATA_SEGMENT_SIZE 65536
+section .text
+setup_data_segment:
+    push rdi
+    
+    xor rdi, rdi                ; 0, hereをraxに取得
+    mov rax, 12                 ; brk
+    syscall
+    mov [var_here], rax
+    mov [var_h0], rax
+
+    add rax, INITIAL_DATA_SEGMENT_SIZE
+    mov rdi, rax
+    mov rax, 12
+    syscall
+    
+    pop rdi
+    ret
+
+    
 ;; Word Defining Macro
 ;; =================================================================================================
 %macro defcode 3 ; name, flags, label
@@ -1139,16 +1162,14 @@ var_base:  dq 10
 var_rs0: dq 0
     
 ;; 辞書アドレス
-var_here: dq dictionary
-var_h0:   dq dictionary
+var_here: dq 0
+var_h0:   dq 0
 
 var_latest: dq prev_link
 
 section     .bss
 alignb 8
 
-dictionary: resb 4096
-    
 ;; <データスタック>
 ;; rbpがdata_stack_emptyを指している場合、スタックの内容は空。
 ;; スタックに1つデータを入れた場合、rbxがTOS、rbpはdata_stack_secondを指す。
