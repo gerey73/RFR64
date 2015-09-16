@@ -482,9 +482,9 @@ _print:
 ;; 比較
 ;; -------------------------------------------------------------------------------------------------
 %macro compare 1    ; opcode
-    mov rax, [rbp + 8]
-    cmp rax,rbx
-    %1  bl
+    mov  rax, [rbp + 8]
+    cmp  rax, rbx
+    %1   bl
     movzx rbx, bl
     lea  rbp, [rbp + 8]
     ret
@@ -510,10 +510,9 @@ _print:
 
 
 %macro zcompare 1
-    cmp rbx, 0
-    %1  bl
+    cmp  rbx, 0
+    %1   bl
     movzx rbx, bl
-    lea rbp, [rbp + 8]
     ret
 %endmacro
 
