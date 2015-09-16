@@ -637,7 +637,8 @@ _find:
     defcode "!", f_inline, store
     mov  rax, [rbp + 8]
     mov  [rbx], rax
-    lea  rbp, [rbp + 8]
+    lea  rbp, [rbp + 16]
+    mov  rbx, [rbp]
     ret
 
     defcode "c@", f_inline, byte_fetch
@@ -681,6 +682,28 @@ _find:
     add   rdi, 8
     push  rdi
     DPUSH rax
+    ret
+
+;; ,  ( n -- )
+;; 辞書に値n(8bytes)を置いて、辞書ポインタを更新
+    defcode ",", 0, comma
+    DPOP rax
+    mov  rdi, [var_here]
+    mov  [rdi], rax
+    add  rdi, 8
+    mov  [var_here], rdi
+    ret
+
+;; c,  ( n -- )
+;; 辞書に値n(1byte)を置いて、辞書ポインタを更新
+    defcode "c,", 0, bytecomma
+    DPOP rax
+    xor  rcx, rcx
+    mov  cl, al
+    mov  rdi, [var_here]
+    mov  [rdi], cl
+    inc  rdi
+    mov  [var_here], rdi
     ret
 
 ;; create-header  ( a u -- )
@@ -836,7 +859,7 @@ _find:
     jmp  .loop
 
 .alphabet:
-    add  rax, 'A'
+    add  rax, 0x37    ; 'A' - 10
     jmp .loop
 
 .loop:
