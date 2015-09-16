@@ -48,7 +48,7 @@ extern  dlsym
     mov  rbx, [rbp]       ; 2番目をTOSに
 %endmacro
 
-    
+
 ;; Entry Point
 ;; =================================================================================================
     global      main
@@ -56,7 +56,7 @@ main:
     cld
 
     ;; リターンスタックの初期位置を保存
-    mov  [var_rs0], rsp         
+    mov  [var_rs0], rsp
 
     ;; データスタックを空に
     mov  rbp, data_stack_empty ; データスタックを空に
@@ -65,14 +65,14 @@ main:
     call setup_data_segment
     call code_interpreter
 
-    
+
 ;; データセグメント設定
 ;; =================================================================================================
 %define INITIAL_DATA_SEGMENT_SIZE 65536
 section .text
 setup_data_segment:
     push rdi
-    
+
     xor rdi, rdi                ; 0, hereをraxに取得
     mov rax, 12                 ; brk
     syscall
@@ -83,11 +83,11 @@ setup_data_segment:
     mov rdi, rax
     mov rax, 12
     syscall
-    
+
     pop rdi
     ret
 
-    
+
 ;; Word Defining Macro
 ;; =================================================================================================
 %macro defcode 3 ; name, flags, label
@@ -157,7 +157,7 @@ global  code_%3
     mov  al, '!'
     DPUSH rax
     call code_dup   ; !!
-    
+
     xor  rax, rax
     mov  al, 'y'
     DPUSH rax
@@ -175,34 +175,34 @@ global  code_%3
     call code_rot     ; ooy!!
     call code_drop    ; oy!!
     call code_swap    ; yo!!
-    
+
     ; スタックトップから5文字表示
     call code_emit
     call code_emit
     call code_emit
     call code_emit
     call code_emit
-    
+
     ret
 
-    
+
 ;; スタック操作
 ;; -------------------------------------------------------------------------------------------------
     defcode "drop", f_inline, drop
     DPOP rax
     ret
-    
+
     defcode "swap", f_inline, swap
     mov  rax, rbx
     mov  rbx, [rbp + 8]
     mov  [rbp + 8], rax
     ret
-    
+
     defcode "dup", f_inline, dup
     mov  [rbp], rbx
     lea  rbp, [rbp - 8]
     ret
-    
+
 ;; ( x y -- x y x )
 ;; : over  swap dup -rot ;
     defcode "over", f_inline, over
@@ -230,7 +230,7 @@ global  code_%3
     mov  rbx, rax           ; 2 -> 1
     ret
 
-    
+
 ;; 文字入力
 ;; -------------------------------------------------------------------------------------------------
 ;; key  ( -- c ) 1バイト入力
@@ -242,7 +242,7 @@ key_cur:  dq key_buff    ; 現在の読み込み位置
 
 section .bss
 key_buff: resb 4096    ; バッファサイズ
-    
+
     defcode "key", 0, key
     xor rax, rax
     call _key
@@ -303,7 +303,7 @@ _key:
     mov  rdi, [key_fd]
     cmp  rdi, 0
     je   .close
-    
+
     ; 読み込めなかった事を表す0を返す
     xor  rax, rax
     jmp  .end
@@ -313,12 +313,12 @@ _key:
     mov  rdi, [key_fd]
     mov  rax, 3          ; close
     syscall
-    
+
     ; とりあえず標準入力に戻す
     xor  rax, rax
     mov  [key_fd], rax
     jmp  .read
-    
+
 .end:
     pop  rbx    ; TOSを戻す
     ret
@@ -358,7 +358,7 @@ _read_token:
     je   .skip
     cmp  al, 0x20
     je   .skip
-    
+
 .read:
     ; 区切り文字かどうかにかかわらず、バッファにコピーする
     mov  [rdi], al
@@ -373,7 +373,7 @@ _read_token:
     je   .end
 
     ; 文字数インクリメント
-    inc  rdx          
+    inc  rdx
 
     ; 1文字読み込む
     push rdx
@@ -382,13 +382,13 @@ _read_token:
     pop  rdi
     pop  rdx
     jmp .read
-    
+
 .end:
     mov  rsi, token_buff
     pop  rbx    ; TOSを戻す
     ret
 
-    
+
 ;; 文字出力
 ;; -------------------------------------------------------------------------------------------------
 ;; emit  ( c -- )  1バイト出力
@@ -401,10 +401,10 @@ emit_buff: dq 0
     DPOP rax
     call _emit
     ret
-    
+
 _emit:
     mov [emit_buff], al   ; sys_writeのために文字をメモリに置いておく。
-    
+
     push rbx                  ; TOS退避
     mov  rdi, 1            ; stdout
     mov  rsi, emit_buff
@@ -414,7 +414,7 @@ _emit:
     pop  rbx                   ; TOSを戻す
     ret
 
-    
+
 ;; print  ( a u -- )  文字列出力
 ;; レジスタrsiにアドレス、rdxに長さを入れて_printをコールすると、他の組み込みワードからも使える。
     defcode "print", 0, print
@@ -431,7 +431,7 @@ _print:
     pop  rbx      ; TOSを戻す
     ret
 
-    
+
 ;; 算術演算
 ;; -------------------------------------------------------------------------------------------------
     defcode "+", f_inline, w_add
@@ -477,8 +477,8 @@ _print:
     mov  rbx, rax
     lea  rbp, [rbp + 8]
     ret
-    
-    
+
+
 ;; Forth処理系関連
 ;; -------------------------------------------------------------------------------------------------
 ;; >&namelen  ( a -- a )
@@ -505,8 +505,8 @@ _nameaddr:
     call _namelen
     add  rdi, 1    ; NameLen(1)
     ret
-    
-    
+
+
 ;; >&code-addr  ( a -- a )
 ;; ヘッダアドレスを、コードアドレスに変換する
 ;; rdiに入れて_codeaddrをコールすると、rdiに結果が返る。
@@ -519,7 +519,7 @@ _codeaddr:
     add  rdi, 8    ; Link(8)
     ret
 
-    
+
 ;; >&flag  ( a -- a )
 ;; ヘッダアドレスを、フラグアドレスに変換する
 ;; rdiに入れて_flagaddrをコールすると、rdiに結果が返る。
@@ -532,7 +532,7 @@ _flagaddr:
     add  rdi, 16    ; Link(8) + Code(8)
     ret
 
-    
+
 ;; find  ( a u -- a? )
 ;; ワードのヘッダアドレスを探して返す。
 ;; rsiにアドレス、rdxに長さを入れて_findをコールすると、raxに結果が返る。
@@ -547,7 +547,7 @@ _find:
     push rbx              ; TOS退避
     mov  rbx, [var_latest]    ; 検索開始位置
     mov  rcx, rdx         ; 長さをrcxに
-    
+
 .find:
     ; 長さが同じかどうか調べる
     xor  rax, rax
@@ -584,12 +584,12 @@ _find:
     ; 一致したので、ヘッダアドレスを返す
     mov  rax, rbx
     jmp  .end
-    
+
 .next:
     mov  rbx, [rbx]    ; 次のワードへ。Linkは先頭
     cmp  rbx, 0        ; まだ検索対象があれば、続ける
     jne  .find
-    
+
     ; 検索対象がもう無いので、0を返す
     xor rax, rax
 
@@ -611,7 +611,7 @@ _find:
     DPOP rax
     jmp  rax
     ret
-    
+
 ;; [  ( -- )
 ;; executeモードに切り替える
     defcode "[", f_immediate, execute_mode
@@ -619,7 +619,7 @@ _find:
     mov  [var_state], rax
     ret
 
-    
+
 ;; ]  ( -- )
 ;; compileモードに切り替える
     defcode "]", 0, compile_mode
@@ -627,7 +627,7 @@ _find:
     mov  [var_state], rax
     ret
 
-    
+
 ;; メモリ操作
 ;; -------------------------------------------------------------------------------------------------
     defcode "@", f_inline, fetch
@@ -669,7 +669,7 @@ _find:
     lea  rbp, [rbp + 16]
     mov  rbx, [rbp]
     ret
-    
+
 
 ;; 辞書操作
 ;; -------------------------------------------------------------------------------------------------
@@ -682,17 +682,17 @@ _find:
     push  rdi
     DPUSH rax
     ret
-    
+
 ;; create-header  ( a u -- )
 ;; 渡されたワード名のヘッダを作成する。
     defcode "create-header", 0, create_header
     DPOP rdx
     DPOP rsi
     push rbx    ; TOS退避
-    
+
     ; 辞書ポインタ取得
     mov  rdi, [var_here]
-    
+
     ; latest更新
     mov  rax, [var_latest]
     mov  [rdi], rax
@@ -713,7 +713,7 @@ _find:
     inc  rdi
 
     ; ワード名をコピー
-    push rdi  
+    push rdi
     mov  rcx, rdx    ; 長さ
     rep movsb        ; コピー先: rdi, コピー元: rsi
     pop  rdi
@@ -765,10 +765,10 @@ _find:
     mov  [rdi], al
     inc  rdi
     mov  [var_here], rdi
-    
+
     ret
 
-    
+
 ;; システム操作
 ;; -------------------------------------------------------------------------------------------------
     defcode "bye", 0, bye
@@ -776,7 +776,7 @@ _find:
     mov  rax, 60   ; sys_exit
     syscall
 
-    
+
 ;; インタープリタ
 ;; -------------------------------------------------------------------------------------------------
 ;; space  ( -- )
@@ -785,14 +785,14 @@ _find:
     call _emit
     ret
 
-    
+
 ;; cr  ( -- )
     defcode "cr", 0, cr
     mov  rax, 0xA
     call _emit
     ret
 
-    
+
 ;; . ( n -- )
 ;; スタックトップの数値をvar_base進数で表示する。1-16進数が表示可能。
     defcode ".", 0, dot
@@ -800,7 +800,7 @@ _find:
     push rbx               ; TOSを退避
     xor  rcx, rcx          ; 桁数カウント
     mov  r8, [var_base]    ; n進数
-    
+
     cmp  rax, 0
     jge  .dot
 
@@ -814,7 +814,7 @@ _find:
     pop  rcx
     pop  rax
     neg  rax
-    
+
 .dot:
     xor  rdx, rdx    ; 上位桁
     div  r8
@@ -828,17 +828,17 @@ _find:
 .print:
     pop  rax        ; 最上位桁をpop
     dec  rcx
-    
+
     cmp  rax, 10    ; 10以上なら、アルファベットで表示
     jge  .alphabet
 
     add  rax, '0'
     jmp  .loop
-    
+
 .alphabet:
     add  rax, 'A'
     jmp .loop
-    
+
 .loop:
     push rcx
     call _emit
@@ -851,7 +851,7 @@ _find:
     call code_space
     ret
 
-    
+
 ;; >number  ( a u -- n flag )
 ;; 文字列を数字として処理する。大文字A-Zを使った1-16進数が使用可能。var_baseの値で何進数か指定する。
 ;; rsiにアドレス、rdxに長さを指定して_to_numberをコールすると、raxに数値、rcxにフラグが返る。
@@ -863,14 +863,14 @@ _find:
     DPUSH rax
     DPUSH rcx
     ret
-    
+
 _to_number:
     push rbx    ; TOSを退避
 
     ; 数値、ベース
     xor  rax, rax          ; 数値
     mov  r8, [var_base]    ; ベース
-    
+
     ; 符号を判定
     xor  rcx, rcx
     mov  bl, '-'
@@ -881,12 +881,12 @@ _to_number:
     ; 符号を表す数値を置く。0なら負、それ以外なら正の数とする。
     mov  rbx, 1
     push rbx
-    
+
 .read:
     ; 文字取得
     xor  rcx, rcx
     mov  cl, [rsi]
-    
+
     ; アスキーコード'0'未満
     mov  bl, '0'
     cmp  cl, bl
@@ -914,7 +914,7 @@ _to_number:
     add  cl, 10
     add  rax, rcx
     jmp  .next
-    
+
 .ascii_num:
     ; アスキーコード 0 - 9 の場合
     mov  bl, '0'
@@ -944,24 +944,24 @@ _to_number:
     inc  rsi
     dec  rdx
     jmp  .read
-    
+
 .result:
     ; フラグを設定
     mov  rcx, 1
-    
+
     ; 符号を与える
     pop  rbx
     cmp  rbx, 0
     jne  .end
     neg  rax
     jmp  .end
-    
+
 .notnumber:
     ; 数字として解釈できなかった
     pop  rax         ; 符号を取り除く
     xor  rax, rax
     xor  rcx, rcx
-    
+
 .end:
     pop  rbx
     ret
@@ -972,7 +972,7 @@ _to_number:
     defcode "eval-word", 0, eval_word
     mov  rax, rbx    ; TOSのワードアドレスを保存
     push rax
-    
+
     ; コードアドレスに変換
     call code_to_addr_code
     call code_fetch
@@ -1026,7 +1026,7 @@ _to_number:
 
 ;; eval-number  ( n -- ... )
 ;; モードに合わせて数字を処理する。コンパイルモードの場合、 call lit [8byte] の形にコンパイルする。
-    defcode "eval-number", 0, eval_number    
+    defcode "eval-number", 0, eval_number
     ; compileモード
     mov  rdx, [var_state]
     cmp  rdx, 1
@@ -1064,13 +1064,13 @@ _to_number:
     mov  [var_here], rdi
 
     ret
-    
-    
+
+
 ;; eval-token  ( a u -- ... )
 ;; トークンをモードに合わせて処理する
 word_notfound_msg: db "Word not found: "
 word_notfound_len  equ $ - word_notfound_msg
-    
+
     defcode "eval-token", 0, eval_token
     DPOP rdx
     DPOP rsi
@@ -1098,7 +1098,7 @@ word_notfound_len  equ $ - word_notfound_msg
     DPUSH rax
     call  code_eval_number
     jmp   .end
-    
+
 .found:
     ; ワードが見つかった
     DPUSH rax
@@ -1115,9 +1115,9 @@ word_notfound_len  equ $ - word_notfound_msg
     pop  rsi
     pop  rdx
     call _print        ; ワード名出力
-    mov  rax, 0xA      ; 改行 
+    mov  rax, 0xA      ; 改行
     call _emit
-    
+
 .end:
     ret
 
@@ -1127,9 +1127,9 @@ word_notfound_len  equ $ - word_notfound_msg
     defcode "interpreter", 0, interpreter
 .loop:
     call code_read_token
-    call code_eval_token    
+    call code_eval_token
     jmp  .loop
-    
+
 
 ;; 変数
 ;; -------------------------------------------------------------------------------------------------
@@ -1152,15 +1152,15 @@ word_notfound_len  equ $ - word_notfound_msg
     mov  rax, var_base
     DPUSH rax
     ret
-    
+
 section .data
 
 var_state: dq 0     ; 0: execute, 1: compile
 var_base:  dq 10
-    
+
 ;; リターンスタックの初期位置
 var_rs0: dq 0
-    
+
 ;; 辞書アドレス
 var_here: dq 0
 var_h0:   dq 0
