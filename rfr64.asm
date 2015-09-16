@@ -882,6 +882,14 @@ _compile:
     ret
 
 
+;; compile-call  ( a -- )
+;; 絶対アドレスaへのcallをコンパイルする。
+    defcode "compile-call", 0, compile_addr
+    DPOP rax
+    call _compile
+    ret
+
+
 ;; '  ( -- )
 ;; 次のワード名のヘッダアドレスをスタックに置く
 ;; コンパイルモードの場合は、lit addr の形にコンパイルする
@@ -1016,6 +1024,43 @@ _compile:
     inc  rdi
     mov  [var_here], rdi
 
+    ret
+
+
+;; VAR & DOES
+;; -------------------------------------------------------------------------------------------------
+;; CREATE, DOES>, VAR などを作るためのルーチン
+
+;; DOVAR
+;; ワード: DOVARのアドレスを置く
+;; コード: DOVARへのコールの戻りアドレス、CREATEでallotする場所をスタックに積む。
+    defcode "DOVAR", 0, const_DOVAR
+    mov  rax, DOVAR
+    DPUSH rax
+    ret
+
+DOVAR:
+    pop  rax
+    DPUSH rax
+    ret
+
+
+;; DODOES
+;; ワード: DODOESのアドレスを置く
+;; コード: 二段階のcallによって使う。CREATEで作ったワードのコード(A)を、DOES>時点の
+;; 辞書アドレス(B)へのcallに上書きする。BにDODOESへのcallをコンパイルする。
+;; DODOES時点でcallスタックは A -> B -> (DODOES) となっている。Aのリターン先がCREATEでの保存場所
+;; なので、それを取り出しスタックに積む。そしてBに戻ればDOES>用の動作となる。
+    defcode "DODOES", 0, const_DODOES
+    mov  rax, DODOES
+    DPUSH rax
+    ret
+
+DODOES:
+    pop  rdi    ; 戻り先
+    pop  rax    ; CREATEの次
+    DPUSH rax
+    push rdi
     ret
 
 
