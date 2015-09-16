@@ -231,6 +231,22 @@ global  code_%3
     ret
 
 
+;; リターンスタック操作
+;; -------------------------------------------------------------------------------------------------
+;; インライン展開はできない。
+    defcode "r>", 0, rpop
+    pop  rcx    ; r>の戻り先
+    pop  rax    ; 目的の値
+    DPUSH rax
+    jmp  rcx
+
+    defcode ">r", 0, rpush
+    DPOP rax
+    pop  rcx    ; >rの戻り先
+    push rax
+    jmp  rcx
+
+
 ;; 文字入力
 ;; -------------------------------------------------------------------------------------------------
 ;; key  ( -- c ) 1バイト入力
@@ -443,6 +459,14 @@ _print:
     sub  rbx, [rbp + 8]
     neg  rbx
     lea  rbp, [rbp + 8]
+    ret
+
+    defcode "1+", f_inline, w_inc
+    inc  rbx
+    ret
+
+    defcode "1-", f_inline, w_dec
+    dec  rbx
     ret
 
     defcode "*", f_inline, w_mul
@@ -761,6 +785,16 @@ _find:
     sub  rcx, rax
     mov  [rbx], rcx
     lea  rbp, [rbp + 16]
+    mov  rbx, [rbp]
+    ret
+
+;; block-copy  ( src u dst -- )
+    defcode "block-copy", f_inline, block_copy
+    mov  rdi, rbx          ; コピー先
+    mov  rcx, [rbp + 8]    ; 長さ
+    mov  rsi, [rbp + 16]   ; コピー元
+    rep  movsb
+    lea  rbp, [rbp + 24]
     mov  rbx, [rbp]
     ret
 
