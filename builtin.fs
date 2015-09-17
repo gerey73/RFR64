@@ -18,6 +18,7 @@
 
 : >code  ( -- )  >&code @ ;  | コードアドレスを直接取得する。
 
+
 | 制御構造
 | ------------------------------------------------------------------------------
 : offset-space  (   -- a )  here @  0 4c, ;
@@ -186,7 +187,7 @@ private/
 
    : create-pop  ( -- )
       create  ( none )
-      does>  ( -- n )  8 sp -!  sp @ @ ;
+      does>  ( -- n )  drop  8 sp -!  sp @ @ ;
 
    reveal>>
    : make-stack:  ( n -- )
@@ -244,19 +245,24 @@ private/
 
    : field-addr  ( &rec &o -- &field )  @ + ;
 
+   : record-allot  ( size -- )
+      4 -      | レコードサイズに、サイズ記録用の4byteは含めない。
+      dup 4c,  | サイズを記録
+      allot ;
    : close-record  ( size -- )
       name-buff name-len @ create-header
       [compile] create
       [compile] lit
       ,
-      [compile] allot
+      [compile] record-allot
       [ret] ;
 reveal>>
    : record  ( -- o )
       read-token buff-name
       ' close-record scs-push
-      0 ( オフセット ) ;
+      4 ( オフセット。レコードサイズの分空けてスタート。 ) ;
    : field:  ( o u -- o )
       create over , +  ( オフセットを更新する )
       does>  field-addr ;
+   : size  ( rec )  4c@ ;
 /private
