@@ -230,6 +230,13 @@ global  code_%3
     mov  rbx, rax           ; 2 -> 1
     ret
 
+    defcode "2dup", f_inline, twodup
+    mov  [rbp], rbx
+    mov  rax, [rbp + 8]
+    mov  [rbp - 8], rax
+    lea  rbp, [rbp - 16]
+    ret
+
 
 ;; リターンスタック操作
 ;; -------------------------------------------------------------------------------------------------
@@ -1113,6 +1120,45 @@ DODOES:
     xor  rdi, rdi  ; 終了コード
     mov  rax, 60   ; sys_exit
     syscall
+
+
+;; システムコール
+;; -------------------------------------------------------------------------------------------------
+    defcode "syscall-0", f_inline, syscall_0
+    mov  rax, rbx
+    syscall
+    mov  rbx, rax
+    ret
+
+    ; ( arg1 syscall-num -- result )
+    defcode "syscall-1", f_inline, syscall_1
+    mov  rax, rbx
+    mov  rdi, [rbp + 8]
+    syscall
+    lea  rbp, [rbp + 8]
+    mov  rbx, rax
+    ret
+
+    ; ( arg1 arg2 syscall-num -- result )
+    defcode "syscall-2", f_inline, syscall_2
+    mov  rax, rbx
+    mov  rdi, [rbp + 16]
+    mov  rsi, [rbp + 8]
+    syscall
+    lea  rbp, [rbp + 16]
+    mov  rbx, rax
+    ret
+
+    ; ( arg1 arg2 arg3 syscall-num -- result )
+    defcode "syscall-3", f_inline, syscall_3
+    mov  rax, rbx
+    mov  rdi, [rbp + 24]
+    mov  rsi, [rbp + 16]
+    mov  rdx, [rbp + 8]
+    syscall
+    lea  rbp, [rbp + 24]
+    mov  rbx, rax
+    ret
 
 
 ;; インタープリタ

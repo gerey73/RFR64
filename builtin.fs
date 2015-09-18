@@ -266,3 +266,66 @@ reveal>>
       does>  field-addr ;
    : size  ( rec )  4c@ ;
 /private
+
+
+| C String
+| ------------------------------------------------------------------------------
+| Forth文字列をCのヌル終端文字列に変える。
+|
+| >cstr.dict  ( a u -- a )
+|    文字列をhere位置にコピーして1バイトの0を足す。辞書ポインタは更新しない。
+| puts  ( a -- )
+|    C文字列を出力する。改行は追加しない。
+
+private/
+reveal>>
+   : >cstr.dict  ( a u -- )
+      swap over          ( u a u )
+      here @ block-copy  ( u )
+      here @ +           ( a  末尾+1の位置 )
+      0 swap c!  here @ ;
+
+   : puts  ( a -- )   begin  dup c@ ?dup  while  emit 1+  repeat  drop ;
+/private
+
+
+| System Call Numbers
+| ------------------------------------------------------------------------------
+: SYS-READ   0 ;
+: SYS-WRITE  1 ;
+: SYS-OPEN   2 ;
+: SYS-CLOSE  3 ;
+: SYS-BRK    12 ;
+
+
+| File
+| ------------------------------------------------------------------------------
+
+private/
+   create cbuff  cell allot  ( 1文字読み込むためのバッファ )
+
+   : FLAG-READONLY  0 ;
+
+
+   : readc  ( fd buff -- u )
+      | fdから1文字buffに読み込む
+      | 読み込んだ文字数 (1 or 0) を返す。
+      1 ( 文字数 )  SYS-READ  syscall-3  ( result ) ;
+reveal>>
+   : open-read-file  ( a u -- fd )  | 読み込み専用のopen
+      >cstr.dict FLAG-READONLY SYS-OPEN syscall-2 ;
+
+   : close-file  ( fd -- r )  SYS-CLOSE syscall-1 ;
+
+   : read-char  ( fd -- c ? )
+      | fdから1文字読み込み、その文字と結果(読み込んだ文字数)を返す。
+      cbuff readc  cbuff c@ swap ;
+
+   | Examples ------------------------------------------------------------------
+
+   : show-file  ( a u -- )
+      | ファイルの中身を全て出力する
+      open-read-file  ( fd )
+      begin  dup read-char ( fd c ? )  while  emit  repeat  ( fd )
+      close-file ;
+/private

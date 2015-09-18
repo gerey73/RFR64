@@ -1,4 +1,5 @@
 RFR64
 *.o
 *.lst
+test.txt
 
