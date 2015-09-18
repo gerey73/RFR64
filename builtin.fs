@@ -302,8 +302,9 @@ reveal>>
 private/
    create cbuff  cell allot  ( 1文字読み込むためのバッファ )
 
-   : FLAG-READONLY  0 ;
-
+   : RONLY 0 ;
+   : WONLY 1 ;
+   : RDWR  2 ;
 
    : readc  ( fd buff -- u )
       | fdから1文字buffに読み込む
@@ -311,7 +312,7 @@ private/
       1 ( 文字数 )  SYS-READ  syscall-3  ( result ) ;
 reveal>>
    : open-read-file  ( a u -- fd )  | 読み込み専用のopen
-      >cstr.dict FLAG-READONLY SYS-OPEN syscall-2 ;
+      >cstr.dict RONLY SYS-OPEN syscall-2 ;
 
    : close-file  ( fd -- r )  SYS-CLOSE syscall-1 ;
 
