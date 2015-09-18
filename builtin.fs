@@ -278,13 +278,11 @@ reveal>>
 |    C文字列を出力する。改行は追加しない。
 
 private/
+   : add-null-end  (       a u -- )  + 0 swap ! ;
+   : copy&null+    ( src u dst -- )  2dup add-null-end  block-copy ;
 reveal>>
-   : >cstr.dict  ( a u -- )
-      swap over          ( u a u )
-      here @ block-copy  ( u )
-      here @ +           ( a  末尾+1の位置 )
-      0 swap c!  here @ ;
-
+   : >cstr.dict  (       a u -- a )  here @  copy&null+  here @ ;
+   : >cstr.at    ( src u dst --   )  copy&null+ ;
    : puts  ( a -- )   begin  dup c@ ?dup  while  emit 1+  repeat  drop ;
 /private
 
