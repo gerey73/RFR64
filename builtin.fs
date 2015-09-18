@@ -174,21 +174,29 @@ var: reveal-start
 | apop .      ( => 50 )
 
 private/
-   var: sp
    var: stack
+   var: sp
    : create-stack  ( n -- )
-      create  here @  dup sp ! stack !  allot ;
+      create  here @ stack !  allot ;
+
    : create-sp  ( n -- )
-      create  sp ,  does> @ @ ;
+      create  here @ sp !  stack @ ,  does> @ ;
 
    : create-push  ( -- )
-      create  ( none )
-      does>  ( n a -- )  drop  sp @ !  8 sp +! ;
+      create  sp @ ,
+      does>  @ ( n &sp -- )
+         swap over  ( &sp n &sp )
+         @          ( &sp n sp  )
+         !          ( &sp       )
+         8 swap +! ;
 
    : create-pop  ( -- )
-      create  ( none )
-      does>  ( -- n )  drop  8 sp -!  sp @ @ ;
-
+      create  sp @ ,
+      does>  @ ( &sp -- n )
+         dup        ( &sp &sp )
+         8 swap -!  ( &sp     )
+         @          ( sp      )
+         @          ( n       ) ;
    reveal>>
    : make-stack:  ( n -- )
       create-stack create-sp create-push create-pop ;
@@ -327,4 +335,33 @@ reveal>>
       open-read-file  ( fd )
       begin  dup read-char ( fd c ? )  while  emit  repeat  ( fd )
       close-file ;
+/private
+
+
+| Loop 2
+| ------------------------------------------------------------------------------
+| SCSなどを使った繰り返し。
+|    dotimes ... end  ( n -- )
+|       ...をn回繰り返す。n回目(1..n)がスタックに積まれる。
+
+private/
+   : NEST-DEPTH  8 ;
+   NEST-DEPTH cells make-stack: dtstack dtsp dtpush dtpop
+
+   : dtbegin  ( max -- )  dtpush 0 dtpush ;
+   : dtcond   ( -- n ? )
+      dtpop 1+ dtpop ( n max )
+      dup  dtpush
+      over dtpush
+      over >= ;
+   : dtend  ( -- )
+      [postpone] repeat  dtpop drop dtpop drop ;
+reveal>>
+   : dotimes  ( n -- )
+      |  dtbegin  begin  dtcond  while ... repeat  dtend
+      [compile]  dtbegin
+      [postpone] begin
+      [compile]  dtcond
+      [postpone] while
+      ' dtend scs-push ; immediate
 /private
