@@ -113,9 +113,6 @@ reveal>>
       repeat drop
       cr ;
 
-   | テスト用
-   MAX-CELLS cells make-stack: astack asp apush apop
-
 ( reveal>> )
    : new     (     -- a )  search-usable  dup mark 1+ ;
    : delete  ( car --   )  1- unmark ;
@@ -145,3 +142,27 @@ reveal>>
       MAX-CELLS  dotimes  drop new drop  end  drop  dump-cells
       drop gc dump-cells ;
 /private
+
+
+| dlopen & C functions
+| ------------------------------------------------------------------------------
+: LIBC s" /lib/x86_64-linux-gnu/libc.so.6" ;
+
+: c-library   ( a u -- )  | #lib-name
+   >cstr.dict  1  dlopen  const> ;
+
+: c-function  ( handle -- )  |  #c-name #f-name
+   read-token >cstr.dict  swap dlsym  const> ;
+
+LIBC c-library libc
+libc c-function printf printf
+libc c-function fflush fflush
+libc c-function puts   cputs
+
+: printf1  ( a u -- )
+   >cstr.dict  printf  c-funcall-1
+   0 fflush c-funcall-1 ;
+
+: printf2  ( n a u -- )
+   >cstr.dict swap  printf c-funcall-2
+   0 fflush c-funcall-1 ;

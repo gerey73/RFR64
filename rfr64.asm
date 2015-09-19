@@ -1181,6 +1181,78 @@ DODOES:
     ret
 
 
+;; dlopen
+;; -------------------------------------------------------------------------------------------------
+    ; ( name flag -- handler )
+    defcode "dlopen", 0, DLOPEN
+    push rbp
+    mov  rsi, rbx          ; flag
+    mov  rdi, [rbp + 8]    ; ライブラリ名(C String)
+    xor  rax, rax          ; SSE未使用
+    call dlopen
+    pop  rbp
+    mov  rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+
+    ; ( handler -- )
+    defcode "dlclose", 0, DLCLOSE
+    push rbp
+    mov  rdi, rbx    ; handler
+    xor  rax, rax    ; SSE未使用
+    call dlclose
+    pop  rbp
+    mov  rbx, rax
+    ret
+
+    ; ( name handler -- addr )
+    defcode "dlsym", 0, DLSYM
+    push rbp
+    mov  rdi, rbx
+    mov  rsi, [rbp + 8]
+    xor  rax, rax                ; SSE未使用
+    call dlsym
+    pop  rbp
+    mov  rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+
+
+;; C function call
+;; -------------------------------------------------------------------------------------------------
+    ; ( a -- r )
+    defcode "c-funcall-0", 0, c_funcall_0
+    push rbp
+    xor  rax, rax          ; SSE未使用
+    call rbx
+    mov  rbx, rax
+    pop  rbp
+    ret
+
+    ; ( arg1 a -- r )
+    defcode "c-funcall-1", 0, c_funcall_1
+    push rbp
+    mov  rdi, [rbp + 8]
+    xor  rax, rax          ; SSE未使用
+    call rbx
+    pop  rbp
+    mov  rbx, rax
+    lea  rbp, [rbp + 8]
+    ret
+
+    ; ( arg1 arg2 a -- r )
+    defcode "c-funcall-2", 0, c_funcall_2
+    push rbp
+    mov  rdi, [rbp + 16]
+    mov  rsi, [rbp + 8]
+    xor  rax, rax          ; SSE未使用
+    call rbx
+    pop  rbp
+    mov  rbx, rax
+    lea  rbp, [rbp + 16]
+    ret
+
+
 ;; インタープリタ
 ;; -------------------------------------------------------------------------------------------------
 ;; space  ( -- )
