@@ -237,6 +237,11 @@ global  code_%3
     lea  rbp, [rbp - 16]
     ret
 
+    defcode "2drop", f_inline, twodrop
+    lea  rbp, [rbp + 16]
+    mov  rbx, [rbp]
+    ret
+
 
 ;; リターンスタック操作
 ;; -------------------------------------------------------------------------------------------------
@@ -804,6 +809,21 @@ _find:
     mov  rbx, [rbp]
     ret
 
+    defcode "inc!", f_inline, inc_var
+    DPOP rax
+    mov  rcx, [rax]
+    inc  rcx
+    mov  [rax], rcx
+    ret
+
+    defcode "dec!", f_inline, dec_var
+    DPOP rax
+    mov  rcx, [rax]
+    dec  rcx
+    mov  [rax], rcx
+    ret
+
+
 ;; block-copy  ( src u dst -- )
     defcode "block-copy", f_inline, block_copy
     mov  rdi, rbx          ; コピー先
@@ -824,7 +844,7 @@ _find:
     xor  rax, rax
     mov  rcx,  [rbp + 8]
     mov  al, cl
-    mov  [rbx], rax
+    mov  [rbx], al
     lea  rbp, [rbp + 16]
     mov  rbx, [rbp]
     ret
@@ -972,7 +992,7 @@ _compile:
     add  rdi, 8
 
     ; TOS更新
-    lea  rbp, [rbp - 8]
+    lea  rbp, [rbp + 8]
     mov  rbx, [rbp]
 
     ; 辞書ポインタ更新
@@ -1520,6 +1540,23 @@ word_notfound_len  equ $ - word_notfound_msg
     call code_read_token
     call code_eval_token
     jmp  .loop
+
+
+;; データスタック
+;; -------------------------------------------------------------------------------------------------
+    defcode "dsdepth", 0, ds_depth
+    ; 深さそのものも含めた、データスタックの深さを返す。最小は1。
+    mov  rax, data_stack_empty
+    sub  rax, rbp    ; スタックはアドレスが小さい方に伸びる
+    sar  rax, 3      ; セルサイズ(8)で割る
+    inc  rax         ; 深さそのもの
+    DPUSH rax
+    ret
+
+    defcode "ds0", 0, ds_start
+    mov  rax, data_stack_empty
+    DPUSH rax
+    ret
 
 
 ;; 変数

@@ -18,7 +18,6 @@
 
 : >code  ( -- )  >&code @ ;  | コードアドレスを直接取得する。
 
-
 | 制御構造
 | ------------------------------------------------------------------------------
 : offset-space  (   -- a )  here @  0 4c, ;
@@ -123,6 +122,30 @@ create strbuff 512 allot    ( 文字列リテラル用バッファ )
    execute-mode?  if print exit then
    [compile] print ; immediate
 
+
+| Arithmetic
+| ------------------------------------------------------------------------------
+: divisible?  ( a b -- ? )  mod 0= ;
+: in-range?   ( x lo hi -- ? )  | lo <= x < hi  アドレス比較に都合がいいので。
+   rot swap over ( lo x hi x )
+   <=  if 2drop 0 exit then  ( lo x )
+   >   if       0 exit then  1 ;
+
+| Logical
+| ------------------------------------------------------------------------------
+: not  ( ? -- ? )  0= ;
+
+: and>>  immediate  ( -- )
+   | <例>  : check dup 2 divisible? and>> dup 0 10 in-range? and>> 1 ;
+   | not ?dup if drop 0 exit then をコンパイルする。
+   | フラグ以外に何らかの値を置いておく。
+   [compile]  not
+   [postpone] if
+   [compile]  drop
+   [compile]  lit
+   0 ,
+   [postpone] exit
+   [postpone] then ;
 
 | Private
 | ------------------------------------------------------------------------------
@@ -338,6 +361,13 @@ reveal>>
 /private
 
 
+| Defer & Is
+| ------------------------------------------------------------------------------
+: noop    ( -- )  ;
+: defer:  ( -- )  create  ' noop >code ,  does> @ call ;
+: is      ( -- )  latest @ >code  read-token find >body ! ; immediate
+
+
 | Loop 2
 | ------------------------------------------------------------------------------
 | SCSなどを使った繰り返し。
@@ -347,7 +377,9 @@ reveal>>
 private/
    : NEST-DEPTH  8 ;
    NEST-DEPTH cells make-stack: dtstack dtsp dtpush dtpop
+   NEST-DEPTH cells make-stack: sfstack sfsp sfpush sfpop
 
+   ( dotimes )
    : dtbegin  ( max -- )  dtpush 0 dtpush ;
    : dtcond   ( -- n ? )
       dtpop 1+ dtpop ( n max )
@@ -355,7 +387,10 @@ private/
       over dtpush
       over >= ;
    : dtend  ( -- )
-      [postpone] repeat  dtpop drop dtpop drop ;
+      [postpone] repeat dtpop drop dtpop drop ;
+
+   ( stack-foreach )
+   : sfcall             (   -- a )  sfpop dup sfpush call ;
 reveal>>
    : dotimes  ( n -- )
       |  dtbegin  begin  dtcond  while ... repeat  dtend
@@ -364,4 +399,23 @@ reveal>>
       [compile]  dtcond
       [postpone] while
       ' dtend scs-push ; immediate
+
+   : pick-from-under    ( n -- x )  cells ds0 swap - @ ;
+   : stack-foreach  ( 'a -- )
+      | ワード ( a -- ) のアドレスを取り、スタックの値を引数としてワードを実行する
+      >code sfpush
+      dsdepth 2 -                           ( TOSとdsdepthの分を引く )
+      dup 0<  if drop sfpop drop exit then  ( スタックが空なので何もしない )
+      dotimes  pick-from-under  sfcall  end  drop
+      dup sfpop call ;
 /private
+
+
+| Debug Tools
+| ------------------------------------------------------------------------------
+
+: .s  ( -- )
+   dsdepth 2 -  ( TOSとdsdepthの分を引く )
+   dup 0<  if drop ." empty" cr exit then
+   dotimes  pick-from-under . end  drop
+   dup . cr ( TOS ) ;
