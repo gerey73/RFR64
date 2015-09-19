@@ -146,23 +146,61 @@ reveal>>
 
 | dlopen & C functions
 | ------------------------------------------------------------------------------
-: LIBC s" /lib/x86_64-linux-gnu/libc.so.6" ;
 
-: c-library   ( a u -- )  | #lib-name
-   >cstr.dict  1  dlopen  const> ;
+private/
+   var: handle
+   var: csym
+   var: word-u
+   create word-buff  256 allot
 
-: c-function  ( handle -- )  |  #c-name #f-name
-   read-token >cstr.dict  swap dlsym  const> ;
+   : close-c-library  ( -- )  handle @ dlclose ;
 
-LIBC c-library libc
-libc c-function printf printf
-libc c-function fflush fflush
-libc c-function puts   cputs
+   : [compile-call]  immediate  ( -- )
+      [compile]  over
+      [compile]  =
+      [postpone] if
+      [compile]  drop
+      [postpone] [compile]
+      [postpone] exit
+      [postpone] then ;
 
-: printf1  ( a u -- )
-   >cstr.dict  printf  c-funcall-1
-   0 fflush c-funcall-1 ;
+   : compile-call  ( n -- )
+      0  [compile-call] c-funcall-0
+      1  [compile-call] c-funcall-1
+      2  [compile-call] c-funcall-2
+      drop ." [Error] Wrong arg number" cr ;
 
-: printf2  ( n a u -- )
-   >cstr.dict swap  printf c-funcall-2
-   0 fflush c-funcall-1 ;
+   : create-caller  ( -- )  word-buff word-u @  create-header ;
+
+   : create-call  ( n -- )
+      [compile] lit
+      csym @ ,
+      compile-call
+      [ret] ;
+reveal>>
+   : c-library  ( -- )  | lib-path#
+      read-token >cstr.dict 1 dlopen  handle !
+      ' close-c-library scs-push ;
+
+   : name:  ( -- )  | c-fname#
+      read-token >cstr.dict  handle @  dlsym  csym ! ;
+
+   : as:  ( -- )  | word-name#
+      read-token  dup word-u !  word-buff block-copy ;
+
+   : with:  ( -- )  | args#
+      read-token  >number  ( n ? )
+      not  if  drop ." [Error] Wrond number!" cr exit  then
+      create-caller  create-call ;
+/private
+
+
+c-library /lib/x86_64-linux-gnu/libc.so.6
+  name: printf  as: printf1  with: 1
+  name: printf  as: printf2  with: 2
+  name: fflush  as: fflush   with: 1
+  name: puts    as: cputs    with: 1
+end
+
+: printf1  (   a u -- )  >cstr.dict      printf1 drop  0 fflush drop ;
+: printf2  ( n a u -- )  >cstr.dict swap printf2 drop  0 fflush drop ;
