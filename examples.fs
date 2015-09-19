@@ -153,7 +153,7 @@ private/
    var: word-u
    create word-buff  256 allot
 
-   : close-c-library  ( -- )  handle @ dlclose ;
+   : close-c-library  ( -- )  ( handle @ dlclose ) ;
 
    : [compile-call]  immediate  ( -- )
       [compile]  over
@@ -204,3 +204,33 @@ end
 
 : printf1  (   a u -- )  >cstr.dict      printf1 drop  0 fflush drop ;
 : printf2  ( n a u -- )  >cstr.dict swap printf2 drop  0 fflush drop ;
+
+
+| Curses
+| ------------------------------------------------------------------------------
+
+c-library libncurses.so.5    | /lib/x86_64-linux-gnu/libncurses.so.5
+  name: initscr   as: initscr   with: 0
+  name: endwin    as: endwin    with: 0
+  name: cbreak    as: cbreak    with: 0
+  name: nocbreak  as: nocbreak  with: 0
+  name: echo      as: echo      with: 0
+  name: noecho    as: noecho    with: 0
+  name: getch     as: getch     with: 0
+  name: addch     as: addch     with: 1
+  name: addstr    as: addstr    with: 1
+  name: move      as: move      with: 2
+  name: flash     as: flash     with: 0
+end
+
+: curses-test
+   initscr
+   noecho cbreak
+   0 0 move  s" press three keys." >cstr.dict  addstr
+   1 2 move  getch addch
+   2 4 move  getch addch
+   3 6 move  getch addch
+   4 0 move  s" press any key." >cstr.dict addstr
+   getch drop flash
+   echo nocbreak
+   endwin ;
