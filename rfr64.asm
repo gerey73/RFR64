@@ -1254,10 +1254,6 @@ DODOES:
 
     ; ( arg1 xs a -- r )  xsはxmmレジスタの使用数
     defcode "c-funcall-1-xmm", 0, c_funcall_1_xmm
-    mov  rax, 10
-    movq xmm0, rax
-    cvtdq2pd xmm0, xmm0
-
     push rbp                ; C関数のアドレス
     mov  rdi, [rbp + 16]    ; 第一引数
     mov  rax, [rbp + 8]     ; SSEレジスタ数
