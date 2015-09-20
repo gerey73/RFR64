@@ -209,12 +209,13 @@ c-library /lib/x86_64-linux-gnu/libc.so.6
   name: puts    with: 1 as: cputs
 end
 
-: printf1  (   a u -- )  >cstr.dict      printf1 drop  0 fflush drop ;
-: printf2  ( n a u -- )  >cstr.dict swap printf2 drop  0 fflush drop ;
+: fflush   ( -- )  0 fflush drop ;
+: printf1  (   a u -- )  >cstr.dict      printf1 drop  fflush ;
+: printf2  ( n a u -- )  >cstr.dict swap printf2 drop  fflush ;
 
 : xprintf1  ( a u -- )
    >cstr.dict  1 ( xmmレジスタ数 ) freg1 &printf c-funcall-1-xmm drop
-   fflush drop ;
+   fflush ;
 
 : xmm.ex  ( a u -- )  ( F: x -- )
    10 dup . >f  7 dup . >f  f/  s" / = %lf"  xprintf1 cr ;
@@ -224,18 +225,18 @@ end
 | ------------------------------------------------------------------------------
 
 c-library libncurses.so.5
-  name: initscr   as: initscr   with: 0
-  name: endwin    as: endwin    with: 0
-  name: cbreak    as: cbreak    with: 0
-  name: nocbreak  as: nocbreak  with: 0
-  name: echo      as: echo      with: 0
-  name: noecho    as: noecho    with: 0
-  name: getch     as: getch     with: 0
-  name: addch     as: addch     with: 1
-  name: addstr    as: addstr    with: 1
-  name: move      as: move      with: 2
-  name: flash     as: flash     with: 0
-  name: clear     as: clear     with: 0
+  name: initscr   with: 0  as: initscr
+  name: endwin    with: 0  as: endwin
+  name: cbreak    with: 0  as: cbreak
+  name: nocbreak  with: 0  as: nocbreak
+  name: echo      with: 0  as: echo
+  name: noecho    with: 0  as: noecho
+  name: getch     with: 0  as: getch
+  name: addch     with: 1  as: addch
+  name: addstr    with: 1  as: addstr
+  name: move      with: 2  as: move
+  name: flash     with: 0  as: flash
+  name: clear     with: 0  as: clear
 end
 
 : curses-test
