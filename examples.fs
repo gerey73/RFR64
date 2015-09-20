@@ -215,6 +215,7 @@ end
    10 dup . >f  7 dup . >f  f/  s" / = %lf"
    xmm.ex.prepare  c-funcall-1-xmm drop  fflush drop  cr ;
 
+
 | Curses
 | ------------------------------------------------------------------------------
 
@@ -230,11 +231,13 @@ c-library libncurses.so.5    | /lib/x86_64-linux-gnu/libncurses.so.5
   name: addstr    as: addstr    with: 1
   name: move      as: move      with: 2
   name: flash     as: flash     with: 0
+  name: clear     as: clear     with: 0
 end
 
 : curses-test
    initscr
    noecho cbreak
+   clear
    0 0 move  s" press three keys." >cstr.dict  addstr
    1 2 move  getch addch
    2 4 move  getch addch
