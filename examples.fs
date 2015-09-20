@@ -151,6 +151,7 @@ private/
    var: handle
    var: csym
    var: word-u
+   var: argc
    create word-buff  256 allot
 
    : close-c-library  ( -- )  ( handle @ dlclose ) ;
@@ -172,10 +173,10 @@ private/
 
    : create-caller  ( -- )  word-buff word-u @  create-header ;
 
-   : create-call  ( n -- )
+   : create-call  ( -- )
       [compile] lit
       csym @ ,
-      compile-call
+      argc @ compile-call
       [ret] ;
 reveal>>
    : c-library  ( -- )  | lib-path#
@@ -186,40 +187,43 @@ reveal>>
       read-token >cstr.dict  handle @  dlsym  csym ! ;
 
    : as:  ( -- )  | word-name#
-      read-token  dup word-u !  word-buff block-copy ;
+      read-token  dup word-u !  word-buff block-copy
+      create-caller  create-call ;
 
    : with:  ( -- )  | args#
       read-token  >number  ( n ? )
       not  if  drop ." [Error] Wrond number!" cr exit  then
-      create-caller  create-call ;
+      argc ! ;
+
+   : sym:  ( -- )  create csym @ ,  does> @ ;
 
    : [now-csym]  immediate  ( -- a )  [compile] lit  csym @ , ; ( デバッグ用 )
 /private
 
 
 c-library /lib/x86_64-linux-gnu/libc.so.6
-  name: printf  as: printf1  with: 1
-  name: printf  as: printf2  with: 2
-  name: fflush  as: fflush   with: 1
-  name: puts    as: cputs    with: 1
-  | テスト用
-  name: printf  : sym-printf [now-csym] ;
+  name: printf  sym: &printf
+                with: 1 as: printf1
+                with: 2 as: printf2
+  name: fflush  with: 1 as: fflush
+  name: puts    with: 1 as: cputs
 end
 
 : printf1  (   a u -- )  >cstr.dict      printf1 drop  0 fflush drop ;
 : printf2  ( n a u -- )  >cstr.dict swap printf2 drop  0 fflush drop ;
 
-: xmm.ex.prepare  ( a u -- a xmms sym )
-   >cstr.dict  1 ( xmmレジスタ数 )  sym-printf  freg1  ;
+: xprintf1  ( a u -- )
+   >cstr.dict  1 ( xmmレジスタ数 ) freg1 &printf c-funcall-1-xmm drop
+   fflush drop ;
+
 : xmm.ex  ( a u -- )  ( F: x -- )
-   10 dup . >f  7 dup . >f  f/  s" / = %lf"
-   xmm.ex.prepare  c-funcall-1-xmm drop  fflush drop  cr ;
+   10 dup . >f  7 dup . >f  f/  s" / = %lf"  xprintf1 cr ;
 
 
 | Curses
 | ------------------------------------------------------------------------------
 
-c-library libncurses.so.5    | /lib/x86_64-linux-gnu/libncurses.so.5
+c-library libncurses.so.5
   name: initscr   as: initscr   with: 0
   name: endwin    as: endwin    with: 0
   name: cbreak    as: cbreak    with: 0
