@@ -1669,36 +1669,117 @@ word_notfound_len  equ $ - word_notfound_msg
 
 
 
-;; 浮動小数点
+;; 浮動小数点数
 ;; -------------------------------------------------------------------------------------------------
+;; 浮動小数点数スタック
 section .bss
 fp_stack:       resb (16 * 16) ; 128bit * 16セル
 fp_stack_top:   resb 16
 
-section .data
-    ; ( x -- F:x )
-    defcode ">f", 0, to_float
-    ; 64bit整数を64bit浮動小数点数スタックに移す
+    defcode ">fp", f_inline, to_float
+    ; 64bit整数を64bit浮動小数点数スタックに変換してpushする
     DPOP rax
     movq xmm0, rax
     cvtdq2pd xmm0, xmm0
     FPUSH xmm0
     ret
 
-    ; ( F: a b -- a/b )
-    defcode "f/", 0, div_float
-    movq xmm0, [r15 + 16]    ; a
-    movq xmm1, [r15 + 8]     ; b
-    divsd xmm0, xmm1
-    lea  r15, [r15 + 8]      ; 2つ分(+16)の次の空の位置(+8)
-    movq [r15 + 8], xmm0
+    defcode "fp>", f_inline, from_float
+    ; 64bit浮動小数点数スタックから64bit整数に変換してpopする
+    FPOP xmm0
+    xor rax, rax
+    cvtsd2si rax, xmm0
+    DPUSH rax
     ret
 
+    ; ( x -- )  ( F: -- x )
+    defcode "fpush", f_inline, push_float
+    ; 64bit浮動小数点数をそのままデータスタックからプッシュする
+    DPOP rax    ; hi
+    movq xmm0, rax
+    FPUSH xmm0
+    ret
+
+    ; ( -- x )  ( F: x -- )
+    defcode "fpop", f_inline, pop_float
+    ; 64bit浮動小数点数をそのままデータスタックに持ってくる
+    FPOP xmm0
+    movq rax, xmm0
+    DPUSH rax
+    ret
+
+;; TODO: 128bit浮動小数点数の扱い
+
     ; ( F: x -- )
-    defcode "freg1", 0, float_to_xmm
+    defcode "freg1", f_inline, float_to_xmm
     ; 浮動小数点数を1つレジスタ(xmm0)に移す
     FPOP xmm0
     ret
+
+;; 四則演算
+%macro FBINOP 1
+    movq xmm0, [r15 + 16]    ; a
+    movq xmm1, [r15 + 8]     ; b
+    %1   xmm0, xmm1
+    lea  r15, [r15 + 8]      ; 2つ分(+16)の次の空の位置(+8)
+    movq [r15 + 8], xmm0
+%endmacro
+
+    defcode "f+", f_inline, add_float
+    FBINOP addsd
+    ret
+
+    defcode "f*", f_inline, mul_float
+    FBINOP mulsd
+    ret
+
+    ; ( F: a b -- a-b )
+    defcode "f-", f_inline, sub_float
+    FBINOP subsd
+    ret
+
+    ; ( F: a b -- a/b )
+    defcode "f/", f_inline, div_float
+    FBINOP divsd
+    ret
+
+;; 比較
+;; g, ge, l, leではなく a, ae, b, beを使うこと
+%macro FCOMP 1
+    movq xmm0, [r15 + 16]    ; a
+    movq xmm1, [r15 + 8]     ; b
+    xor  rax, rax
+    comisd xmm0, xmm1
+    %1   al
+    movzx rax, al
+    lea  r15, [r15 + 16]      ; 2つ分(+16)の次の空の位置(+8)
+    DPUSH rax
+%endmacro
+
+    defcode "f=", f_inline, equ_float
+    FCOMP sete
+    ret
+
+    defcode "f<>", f_inline, neq_float
+    FCOMP setne
+    ret
+
+    defcode "f>", f_inline, gt_float
+    FCOMP seta
+    ret
+
+    defcode "f>=", f_inline, ge_float
+    FCOMP setae
+    ret
+
+    defcode "f<", f_inline, lt_float
+    FCOMP setb
+    ret
+
+    defcode "f<=", f_inline, le_float
+    FCOMP setbe
+    ret
+
 
 ;; 変数
 ;; -------------------------------------------------------------------------------------------------

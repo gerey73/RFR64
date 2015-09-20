@@ -217,8 +217,12 @@ end
    >cstr.dict  1 ( xmmレジスタ数 ) freg1 &printf c-funcall-1-xmm drop
    fflush ;
 
-: xmm.ex  ( a u -- )  ( F: x -- )
-   10 dup . >f  7 dup . >f  f/  s" / = %lf"  xprintf1 cr ;
+: xmm.ex.setup  ( -- )  ( F: -- a b )  7 dup . >fp  10 dup . >fp  ;
+: xmm.ex  ( -- )  ( F: a b -- )
+   xmm.ex.setup  f+  s" + = %lf"  xprintf1 cr
+   xmm.ex.setup  f-  s" - = %lf"  xprintf1 cr
+   xmm.ex.setup  f*  s" * = %lf"  xprintf1 cr
+   xmm.ex.setup  f/  s" / = %lf"  xprintf1 cr ;
 
 
 | Curses
