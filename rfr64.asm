@@ -1252,6 +1252,21 @@ DODOES:
     lea  rbp, [rbp + 16]
     ret
 
+    ; ( arg1 xs a -- r )  xsはxmmレジスタの使用数
+    defcode "c-funcall-1-xmm", 0, c_funcall_1_xmm
+    mov  rax, 10
+    movq xmm0, rax
+    cvtdq2pd xmm0, xmm0
+
+    push rbp                ; C関数のアドレス
+    mov  rdi, [rbp + 16]    ; 第一引数
+    mov  rax, [rbp + 8]     ; SSEレジスタ数
+    call rbx
+    pop  rbp
+    mov  rbx, rax
+    lea  rbp, [rbp + 16]
+    ret
+
 
 ;; インタープリタ
 ;; -------------------------------------------------------------------------------------------------
@@ -1628,6 +1643,24 @@ word_notfound_len  equ $ - word_notfound_msg
     defcode "ds0", 0, ds_start
     mov  rax, data_stack_empty
     DPUSH rax
+    ret
+
+
+;; 浮動小数点
+;; -------------------------------------------------------------------------------------------------
+section .bss
+fp_stack: resb (16 * 16) ; 128bit * 16セル
+fp_top:   resb 16
+
+section .data
+fp_sp: dq fp_top
+
+    ; ( x -- F:x )
+    defcode ">f", 0, to_float
+    ; 64bit整数を64bit浮動小数点数スタックに移す
+    DPOP rax
+    movq xmm0, rax
+    cvtdq2pd xmm0, xmm0
     ret
 
 

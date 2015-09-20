@@ -249,6 +249,10 @@ reveal>>
    scs-closer: end
    scs-closer: }
    scs-closer: ]
+
+   | "]" を利用している実行モード切り替えを再定義
+   : compile-mode  ( -- )  1 state ! ;
+   : [  immediate  ( -- )  0 state !  ' compile-mode scs-push ;
 /private
 
 

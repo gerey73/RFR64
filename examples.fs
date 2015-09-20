@@ -192,6 +192,8 @@ reveal>>
       read-token  >number  ( n ? )
       not  if  drop ." [Error] Wrond number!" cr exit  then
       create-caller  create-call ;
+
+   : [now-csym]  immediate  ( -- a )  [compile] lit  csym @ , ; ( デバッグ用 )
 /private
 
 
@@ -200,10 +202,17 @@ c-library /lib/x86_64-linux-gnu/libc.so.6
   name: printf  as: printf2  with: 2
   name: fflush  as: fflush   with: 1
   name: puts    as: cputs    with: 1
+  | テスト用
+  name: printf  : sym-printf [now-csym] ;
 end
 
 : printf1  (   a u -- )  >cstr.dict      printf1 drop  0 fflush drop ;
 : printf2  ( n a u -- )  >cstr.dict swap printf2 drop  0 fflush drop ;
+
+: xmm-example  ( -- )
+     10 >f s" double-float: %lf"
+     >cstr.dict  1 ( xmmレジスタ数 )  sym-printf  c-funcall-1-xmm drop
+     fflush drop cr ;
 
 
 | Curses
