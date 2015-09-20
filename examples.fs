@@ -215,7 +215,6 @@ end
    10 dup . >f  7 dup . >f  f/  s" / = %lf"
    xmm.ex.prepare  c-funcall-1-xmm drop  fflush drop  cr ;
 
-
 | Curses
 | ------------------------------------------------------------------------------
 

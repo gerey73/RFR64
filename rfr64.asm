@@ -1237,46 +1237,51 @@ DODOES:
 
 ;; C function call
 ;; -------------------------------------------------------------------------------------------------
+;; rbxに呼ぶ関数のアドレスと仮定してcall、結果をTOSに入れる
+%macro CALL_TOS 0
+    ; RBP,RSPの保存とアライメント
+    push rbp
+    mov  rbp, rsp
+    and  rsp, -16
+
+    call rbx
+
+    ; RSP, RBPの復帰
+    mov  rsp, rbp
+    pop  rbp
+
+    ; 戻り値
+    mov  rbx, rax
+%endmacro
+
     ; ( a -- r )
     defcode "c-funcall-0", 0, c_funcall_0
-    push rbp
     xor  rax, rax          ; SSE未使用
-    call rbx
-    mov  rbx, rax
-    pop  rbp
+    CALL_TOS
     ret
 
     ; ( arg1 a -- r )
     defcode "c-funcall-1", 0, c_funcall_1
-    push rbp
     mov  rdi, [rbp + 8]
     xor  rax, rax          ; SSE未使用
-    call rbx
-    pop  rbp
-    mov  rbx, rax
+    CALL_TOS
     lea  rbp, [rbp + 8]
     ret
 
     ; ( arg1 arg2 a -- r )
     defcode "c-funcall-2", 0, c_funcall_2
-    push rbp
     mov  rdi, [rbp + 16]
     mov  rsi, [rbp + 8]
     xor  rax, rax          ; SSE未使用
-    call rbx
-    pop  rbp
-    mov  rbx, rax
+    CALL_TOS
     lea  rbp, [rbp + 16]
     ret
 
     ; ( arg1 xs a -- r )  xsはxmmレジスタの使用数
     defcode "c-funcall-1-xmm", 0, c_funcall_1_xmm
-    push rbp
     mov  rdi, [rbp + 16]    ; 第一引数
     mov  rax, [rbp + 8]     ; SSEレジスタ数
-    call rbx
-    pop  rbp
-    mov  rbx, rax
+    CALL_TOS
     lea  rbp, [rbp + 16]
     ret
 
