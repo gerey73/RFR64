@@ -48,6 +48,20 @@ extern  dlsym
     mov  rbx, [rbp]       ; 2番目をTOSに
 %endmacro
 
+;; FPスタック
+;; レジスタr15をスタックポインタに使う。TOSもメモリ。
+;; 変換は自動でやらない。
+%macro FPUSH 1
+    movsd  [r15], %1
+    lea    r15, [r15 - 8]    ; 64bit
+%endmacro
+
+%macro FPOP 1
+    movsd %1, [r15 + 8]
+    lea  r15, [r15 + 8]
+%endmacro
+
+
 
 ;; Entry Point
 ;; =================================================================================================
@@ -61,6 +75,9 @@ main:
     ;; データスタックを空に
     mov  rbp, data_stack_empty ; データスタックを空に
     xor  rbx, rbx
+
+;; FPスタックを空に
+    mov  r15, fp_stack_top
 
     call setup_data_segment
     call code_interpreter
@@ -1254,7 +1271,7 @@ DODOES:
 
     ; ( arg1 xs a -- r )  xsはxmmレジスタの使用数
     defcode "c-funcall-1-xmm", 0, c_funcall_1_xmm
-    push rbp                ; C関数のアドレス
+    push rbp
     mov  rdi, [rbp + 16]    ; 第一引数
     mov  rax, [rbp + 8]     ; SSEレジスタ数
     call rbx
@@ -1641,24 +1658,42 @@ word_notfound_len  equ $ - word_notfound_msg
     DPUSH rax
     ret
 
+    defcode "dsp", 0, dsp
+    DPUSH rbp
+    ret
+
+
 
 ;; 浮動小数点
 ;; -------------------------------------------------------------------------------------------------
 section .bss
-fp_stack: resb (16 * 16) ; 128bit * 16セル
-fp_top:   resb 16
+fp_stack:       resb (16 * 16) ; 128bit * 16セル
+fp_stack_top:   resb 16
 
 section .data
-fp_sp: dq fp_top
-
     ; ( x -- F:x )
     defcode ">f", 0, to_float
     ; 64bit整数を64bit浮動小数点数スタックに移す
     DPOP rax
     movq xmm0, rax
     cvtdq2pd xmm0, xmm0
+    FPUSH xmm0
     ret
 
+    ; ( F: a b -- a/b )
+    defcode "f/", 0, div_float
+    movq xmm0, [r15 + 16]    ; a
+    movq xmm1, [r15 + 8]     ; b
+    divsd xmm0, xmm1
+    lea  r15, [r15 + 8]      ; 2つ分(+16)の次の空の位置(+8)
+    movq [r15 + 8], xmm0
+    ret
+
+    ; ( F: x -- )
+    defcode "freg1", 0, float_to_xmm
+    ; 浮動小数点数を1つレジスタ(xmm0)に移す
+    FPOP xmm0
+    ret
 
 ;; 変数
 ;; -------------------------------------------------------------------------------------------------

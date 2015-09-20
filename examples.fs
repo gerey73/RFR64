@@ -209,10 +209,11 @@ end
 : printf1  (   a u -- )  >cstr.dict      printf1 drop  0 fflush drop ;
 : printf2  ( n a u -- )  >cstr.dict swap printf2 drop  0 fflush drop ;
 
-: xmm-example  ( -- )
-     10 >f s" double-float: %lf"
-     >cstr.dict  1 ( xmmレジスタ数 )  sym-printf  c-funcall-1-xmm drop
-     fflush drop cr ;
+: xmm.ex.prepare  ( a u -- a xmms sym )
+   >cstr.dict  1 ( xmmレジスタ数 )  sym-printf  freg1  ;
+: xmm.ex  ( a u -- )  ( F: x -- )
+   10 dup . >f  7 dup . >f  f/  s" / = %lf"
+   xmm.ex.prepare  c-funcall-1-xmm drop  fflush drop  cr ;
 
 
 | Curses
