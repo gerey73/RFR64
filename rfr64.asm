@@ -1743,6 +1743,40 @@ fp_stack_top:   resb 16
     FBINOP divsd
     ret
 
+;; ビット演算
+    defcode "fand", f_inline, and_float
+    FBINOP andpd
+    ret
+
+    defcode "for", f_inline, or_float
+    FBINOP orpd
+    ret
+
+    defcode "fxor", f_inline, xor_float
+    FBINOP xorpd
+    ret
+
+;; その他の演算
+    ; ( F: x -- x )
+    defcode "sqrt", f_inline, sqrt_float
+    movq xmm0, [r15 + 8]
+    sqrtsd xmm1, xmm0
+    movq [r15 + 8], xmm1
+    ret
+
+align 16
+sign128f_mask:
+    dq 0x7FFFFFFFFFFFFFFF
+
+    ; ( F: x -- x )
+    defcode "fabs", f_inline, abs_float
+    movq xmm0, [r15 + 8]
+    movq xmm1, [sign128f_mask]
+    andpd xmm0, xmm1
+    movq [r15 + 8], xmm0
+    ret
+
+
 ;; 比較
 ;; g, ge, l, leではなく a, ae, b, beを使うこと
 %macro FCOMP 1
