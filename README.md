@@ -18,13 +18,19 @@ $ ./RFR64
 ファイル読み込み
 
 ```sh
-$ cat builtin.fs - | ./RFR64
+$ cat yourfile.fs - | ./RFR64
 ```
 
 ## サンプル
 
 ```
-$ cat builtin.fs - | ./RFR64
+$ ./RFR64
+load examples.fs
+
+( Mark&Sweep Garbage Collection Test )
+gc-test
+
+
 : counter:  create 0 ,  does> dup @ .  1 swap +! ;
 
 : [get]  [compile] lit  read-token find >body , [compile] @ ; immediate

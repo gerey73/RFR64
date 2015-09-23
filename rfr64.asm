@@ -65,21 +65,29 @@ extern  dlsym
 
 ;; Entry Point
 ;; =================================================================================================
+;; 組み込みライブラリ
+builtin_fs: db "builtin.fs", 0
+
     global      main
 main:
     cld
 
-    ;; リターンスタックの初期位置を保存
+    ; リターンスタックの初期位置を保存
     mov  [var_rs0], rsp
 
-    ;; データスタックを空に
+    ; データスタックを空に
     mov  rbp, data_stack_empty ; データスタックを空に
     xor  rbx, rbx
 
-;; FPスタックを空に
+    ; FPスタックを空に
     mov  r15, fp_stack_top
 
     call setup_data_segment
+
+    ; 組み込みライブラリ入力
+    mov  rdi, builtin_fs
+    call push_kfds
+
     call code_interpreter
 
 
@@ -278,10 +286,95 @@ global  code_%3
 
 ;; 文字入力
 ;; -------------------------------------------------------------------------------------------------
+
+;; Key input FD Stack (KFDS)
+;; 1文字入力用ワード key の入力先を、ファイル名で指定する。
+;; pushと同時に開き、ファイルディスクリプタをスタックに積んでいく。アドレス低位に伸びる。
+;; トップを使用、popと同時にファイルを閉じる。
+section .data
+key_fd:    dq 0    ; 最初は標準入力
+key_fdsp:  dq key_fd_empty
+
+kfds_notfound_msg: db "[Error] No such file", 0xA
+kfds_notfound_len  equ $ - kfds_notfound_msg
+
+section .bss
+key_fd_stack: resb 128    ; 8byte * 16files
+key_fd_empty: resb 8
+
+
+;;  ( fname(cstr) -- )
+    defcode "open-key-input", 0, open_key_input
+    DPOP rdi
+push_kfds:
+    ; rax、rdi、rsiを変更する
+    ; rdiにファイル名(ヌル終端)を入れて呼び出す。
+    mov  rax, 2                  ; open
+    mov  rsi, 0                  ; READ ONLY
+    syscall
+
+    cmp  rax, 0
+    jl   .notfound
+
+    ; PUSH
+    ; スタックトップを記録
+    mov  rdi, [key_fdsp]
+    mov  rcx, [key_fd]
+    mov  [rdi], rcx
+    ; スタックトップに新しいfdを記録
+    mov  [key_fd], rax
+    ; スタックポインタ更新
+    lea  rdi, [rdi - 8]
+    mov  [key_fdsp], rdi
+    ret
+
+.notfound:
+    mov  rsi, kfds_notfound_msg
+    mov  rdx, kfds_notfound_len
+    call _print
+    ret
+
+
+    defcode "close-key-input", 0, close_key_input
+pop_kfds:
+    ; rdiを変更する
+    ; これ以上閉じられない(標準入力)ならrdiに0、それ以外なら1を入れて返す。
+    push rax    ; rax(keyで文字を格納)を保存
+
+    ; スタックが空か判定
+    mov  rdi, key_fd_empty
+    mov  rax, [key_fdsp]
+    cmp  rdi, rax
+    jne  .close
+
+    ; スタックが空(標準入力)ならそのままにする
+    xor  rdi, rdi
+    pop  rax
+    ret
+
+.close:
+    ; FDを閉じる
+    mov  rdi, [key_fd]
+    mov  rax, 3          ; close
+    syscall
+
+    ; POP
+    ; スタックポインタ更新
+    mov  rdi, [key_fdsp]
+    lea  rdi, [rdi + 8]
+    mov  [key_fdsp], rdi
+    ; fdを更新
+    mov  rdi, [rdi]
+    mov  [key_fd], rdi
+
+    mov  rdi, 1
+    pop  rax
+    ret
+
+
 ;; key  ( -- c ) 1バイト入力
 ;; _keyをコールすると、レジスタalに文字が入る
 section .data
-key_fd:   dq 0    ; 標準入力
 key_tail: dq key_buff    ; 読み込んだ文字の末尾位置(バッファアドレス + バッファに読み込んだ文字数)
 key_cur:  dq key_buff    ; 現在の読み込み位置
 
@@ -344,26 +437,9 @@ _key:
     jmp  .key
 
 .eof:
-    ; 読み込み元が標準入力(0)以外なら閉じる
-    mov  rdi, [key_fd]
+    call pop_kfds
     cmp  rdi, 0
-    je   .close
-
-    ; 読み込めなかった事を表す0を返す
-    xor  rax, rax
-    jmp  .end
-
-.close:
-    ; 読み込み元ファイルを閉じて、再び改行かEOFまでread
-    mov  rdi, [key_fd]
-    mov  rax, 3          ; close
-    syscall
-
-    ; とりあえず標準入力に戻す
-    xor  rax, rax
-    mov  [key_fd], rax
-    jmp  .read
-
+    jne  .read
 .end:
     pop  rbx    ; TOSを戻す
     ret

@@ -138,8 +138,9 @@ reveal>>
    : gc-test  ( -- )
       1 2 cons 3 cons 4 cons ( 3セル確保 )
       ." BEFORE GC" cr dump-cells
-      MAX-CELLS  dotimes  drop new drop  end  drop  dump-cells
-      MAX-CELLS  dotimes  drop new drop  end  drop  dump-cells
+      MAX-CELLS 2 *  dotimes
+         drop new drop
+      end  drop  dump-cells
       drop gc dump-cells ;
 /private
 
