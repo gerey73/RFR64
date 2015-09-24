@@ -430,3 +430,32 @@ reveal>>
    dup 0<  if drop ." empty" cr exit then
    dotimes  pick-from-under . end  drop
    dup . cr ( TOS ) ;
+
+
+private/
+   var: dumpcount
+   create dumpcbuff  4 cells allot
+
+   : dump-count-reset  ( -- )  0 dumpcount ! ;
+
+   : byte>ascii  ( c -- )
+      dup 32  <  if drop [char] . exit then
+      dup 126 >  if drop [char] . exit then ;
+
+   : mem-dumpc  ( c -- )
+      byte>ascii  dumpcbuff dumpcount @ +  c! ;
+
+   : dump-ascii  ( c -- )
+      mem-dumpc
+      dumpcount @  15 <  if dumpcount inc! exit then
+      dump-count-reset
+      dumpcbuff 16 print cr ;
+reveal>>
+   : byte.  ( c -- )   dup 16 <  if ." 0" then . ;
+
+   : dump  ( a u -- )
+      dump-count-reset
+      HEX
+        dotimes  over + c@  dup  byte.  dump-ascii  end drop
+      DEC ;
+/private

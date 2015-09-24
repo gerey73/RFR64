@@ -208,6 +208,7 @@ c-library /lib/x86_64-linux-gnu/libc.so.6
                 with: 2 as: printf2
   name: fflush  with: 1 as: fflush
   name: puts    with: 1 as: cputs
+  name: clock_gettime with: 2 as: clock-gettime
 end
 
 : fflush   ( -- )  0 fflush drop ;
@@ -225,6 +226,19 @@ end
    xmm.ex.setup  f*  s" * = %lf"  xprintf1 cr
    xmm.ex.setup  f/  s" / = %lf"  xprintf1 cr ;
 
+| Tick
+
+record Timespec
+  cell field: >sec
+  32 cells field: >nsec
+end
+
+Timespec tickbuff
+: now  ( n -- )
+   tickbuff >nsec swap dup . ." : " + dup 4c@ . @ . cr ;
+: tick  ( -- us )
+   1 tickbuff >sec clock-gettime  0<> if ." failure" cr exit then
+   16 dotimes now end drop ;
 
 | Curses
 | ------------------------------------------------------------------------------
