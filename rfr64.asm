@@ -871,6 +871,73 @@ _find:
     ret
 
 
+;; 最適化用コンパイルスタック (OCS)
+;; =================================================================================================
+;; 定義中のワードのコンパイル先アドレスをスタックに積み、最適化に使用する。アドレス下位に伸びる。
+;; コロン定義開始時にスタックをクリアし、定義終了時にoptimizeを呼び出す
+;; <末尾呼び出し最適化>
+;;   最後のcallを相対ジャンプに変え、リターンスタック操作を減らす
+section .bss
+ocstack: resb 128
+ocs_top: resb 8
+section .data
+ocsp: dq ocs_top
+
+    defcode "osc-push", 0, ocs_push
+    ; 呼び出し時点のhereをpushする
+_ocspush:
+    push rsi
+    mov  rdi, [var_here]
+    ; 値を書き込む
+    mov  rsi, [ocsp]
+    mov  [rsi], rdi
+    ; スタックポインタ更新
+    lea  rsi, [rsi - 8]
+    mov  [ocsp], rsi
+    pop  rsi
+    ret
+
+    defcode "ocs-pop", 0, ocs_pop
+    ; ocsから値を一つポップしてデータスタックに置く
+    call _ocspop
+    DPUSH rax
+    ret
+_ocspop:
+    ; raxに入る
+    mov  rsi, [ocsp]
+    lea  rsi, [rsi + 8]
+    mov  rax, [rsi]
+    mov  [ocsp], rsi
+    ret
+
+    defcode "ocs-clear", 0, ocs_clear
+    mov  rsi, ocs_top
+    mov  [ocsp], rsi
+    ret
+
+;; 末尾呼び出し最適化
+;; 32bit相対callを32bit相対jmpに変える。スタックからポップはしない。
+    defcode "opt-tail-call", 0, opt_tail_call
+    ; スタックが空なら何もしない
+    mov  rsi, [ocsp]
+    mov  rdi, ocs_top
+    jne  .opt
+    ret
+.opt:
+    lea  rsi, [rsi + 8]
+    mov  rdi, [rsi]        ; 最後のワードコンパイル位置
+    xor  rax, rax
+    mov  al, 0xE9          ; 相対ジャンプ
+    mov  [rdi], al         ; 書き換える
+    ret
+
+
+;; 全最適化をかける
+    defcode "optimize", 0, optimize
+    call code_opt_tail_call
+    ret
+
+
 ;; メモリ操作
 ;; -------------------------------------------------------------------------------------------------
     defcode "@", f_inline, fetch
@@ -1015,6 +1082,9 @@ _find:
     mov  rax, [rax]
 
 _compile:
+    ; ocsに辞書位置を追加する
+    call _ocspush
+
     ; rdi以外のレジスタ退避
     push rcx
     push rax
@@ -1171,6 +1241,7 @@ _compile:
     call code_create_header
     call code_hidden
     call code_compile_mode
+    call code_ocs_clear
     ret
 
 
@@ -1179,6 +1250,7 @@ _compile:
     defcode ";", f_immediate, colon_end
     call code_execute_mode
     call code_hidden
+    call code_optimize
 
     ; ret命令(0xC3)をコンパイルする
     mov  rdi, [var_here]

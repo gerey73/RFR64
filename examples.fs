@@ -256,3 +256,8 @@ end
    getch drop flash
    echo nocbreak
    endwin ;
+
+
+| Benchmark
+| ------------------------------------------------------------------------------
+: fib  ( n -- x )  dup 2 <  if exit then  1- dup recur  swap 1- recur +  ;
