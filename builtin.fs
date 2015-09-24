@@ -70,8 +70,10 @@ var: here.old
    [compile] branch  latest @ >code  here @ - 4c, ; immediate
 
 
-| 文字列
+| 文字、文字列
 | ------------------------------------------------------------------------------
+: spaces  ( n -- )  begin  dup 0>  while  1- space  repeat ;
+
 create strbuff 512 allot    ( 文字列リテラル用バッファ )
 
 : litstr  ( -- a u )
@@ -456,6 +458,7 @@ reveal>>
    : dump  ( a u -- )
       dump-count-reset
       HEX
-        dotimes  over + c@  dup  byte.  dump-ascii  end drop
+      dotimes  over + c@  dup  byte.  dump-ascii  end
+      drop dumpcount @ ?dup  if 3 * spaces byte. then
       DEC ;
 /private
