@@ -921,13 +921,14 @@ _ocspop:
     ; スタックが空なら何もしない
     mov  rsi, [ocsp]
     mov  rdi, ocs_top
+    cmp  rdi, rsi
     jne  .opt
     ret
 .opt:
     lea  rsi, [rsi + 8]
     mov  rdi, [rsi]        ; 最後のワードコンパイル位置
     xor  rax, rax
-    mov  al, 0xE9          ; 相対ジャンプ
+    mov  al, 0xE8          ; TODO: 相対ジャンプで動かす
     mov  [rdi], al         ; 書き換える
     ret
 
