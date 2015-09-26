@@ -873,7 +873,9 @@ _find:
 
 ;; 最適化用コンパイルスタック (OCS)
 ;; =================================================================================================
-;; 定義中のワードのコンパイル先アドレスをスタックに積み、最適化に使用する。アドレス下位に伸びる。
+;; 定義中のワードのコードアドレスとコンパイル先アドレスをスタックに積み、最適化に使用する。
+;; スタックはアドレス低位に向かって伸びる。
+;; 順番は低位に向かってCodeAddress hereとなる。
 ;; コロン定義開始時にスタックをクリアし、定義終了時にoptimizeを呼び出す
 ;; <末尾呼び出し最適化>
 ;;   最後のcallを相対ジャンプに変え、リターンスタック操作を減らす
@@ -883,30 +885,38 @@ ocs_top: resb 8
 section .data
 ocsp: dq ocs_top
 
+    ; ( a -- )
     defcode "osc-push", 0, ocs_push
-    ; 呼び出し時点のhereをpushする
+    ; Code Addressと呼び出し時点のhereをpushする
+    DPOP rax
 _ocspush:
+    ; raxにCode Addressを入れて使う
     push rsi
-    mov  rdi, [var_here]
-    ; 値を書き込む
+    ; Code Addressを書き込む
     mov  rsi, [ocsp]
-    mov  [rsi], rdi
+    mov  [rsi], rax
+    ; hereを書き込む
+    mov  rdi, [var_here]
+    mov  [rsi - 8], rdi
     ; スタックポインタ更新
-    lea  rsi, [rsi - 8]
+    lea  rsi, [rsi - 16]
     mov  [ocsp], rsi
     pop  rsi
     ret
 
+    ; ( -- a &code )
     defcode "ocs-pop", 0, ocs_pop
-    ; ocsから値を一つポップしてデータスタックに置く
+    ; ocsからCode Addressとhereの組をデータスタックにpopする
     call _ocspop
     DPUSH rax
+    DPUSH rdi
     ret
 _ocspop:
-    ; raxに入る
+    ; rdiにCode Address、raxにhereが入る
     mov  rsi, [ocsp]
-    lea  rsi, [rsi + 8]
-    mov  rax, [rsi]
+    lea  rsi, [rsi + 16]
+    mov  rdi, [rsi]
+    mov  rax, [rsi - 8]
     mov  [ocsp], rsi
     ret
 
@@ -922,20 +932,42 @@ _ocspop:
     mov  rsi, [ocsp]
     mov  rdi, ocs_top
     cmp  rdi, rsi
-    jne  .opt
+    je   .thru
+
+    ; jmpに変えてはいけないワード
+    lea  rsi, [rsi + 16]
+    mov  rdi, [rsi - 8]    ; 最後のワードコンパイル位置
+    mov  rdx, [rsi]        ; ワードのコードアドレス
+
+    mov  rax, code_lit
+    cmp  rax, rdx
+    je   .thru
+
+    mov  rax, DOVAR
+    cmp  rax, rdx
+    je   .thru
+
+    mov  rax, DODOES
+    cmp  rax, rdx
+    je   .thru
+
+    jmp  .opt
+
+.thru:
+    ; 最適化しない
     ret
+
 .opt:
-    lea  rsi, [rsi + 8]
-    mov  rdi, [rsi]        ; 最後のワードコンパイル位置
+    ; 相対ジャンプに書きかえる
     xor  rax, rax
-    mov  al, 0xE8          ; TODO: 相対ジャンプで動かす
-    mov  [rdi], al         ; 書き換える
+    mov  al, 0xE9
+    mov  [rdi], al
     ret
 
 
-;; 全最適化をかける
+    ;TODO: 全最適化をかける
     defcode "optimize", 0, optimize
-    call code_opt_tail_call
+    ; call code_opt_tail_call
     ret
 
 
@@ -1083,7 +1115,7 @@ _ocspop:
     mov  rax, [rax]
 
 _compile:
-    ; ocsに辞書位置を追加する
+    ; ocsにコードアドレスと辞書位置を追加する
     call _ocspush
 
     ; rdi以外のレジスタ退避
