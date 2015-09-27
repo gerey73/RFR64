@@ -967,7 +967,7 @@ _ocspop:
 
     ;TODO: 全最適化をかける
     defcode "optimize", 0, optimize
-    ; call code_opt_tail_call
+    call code_opt_tail_call
     ret
 
 
@@ -1283,7 +1283,9 @@ _compile:
     defcode ";", f_immediate, colon_end
     call code_execute_mode
     call code_hidden
-    call code_optimize
+
+    ;TODO: 最適化を全ての命令にかけても安全にする
+    ; call code_optimize
 
     ; ret命令(0xC3)をコンパイルする
     mov  rdi, [var_here]
