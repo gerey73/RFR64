@@ -965,7 +965,6 @@ _ocspop:
     ret
 
 
-    ;TODO: 全最適化をかける
     defcode "optimize", 0, optimize
     call code_opt_tail_call
     ret
@@ -1204,8 +1203,10 @@ _compile:
     DPOP rsi
     push rbx    ; TOS退避
 
-    ; 辞書ポインタ取得
+    ; 辞書ポインタ取得、64bit境界にアライメント
     mov  rdi, [var_here]
+    add  rdi, 7
+    and  rdi, ~7
 
     ; latest更新
     mov  rax, [var_latest]
@@ -1213,7 +1214,7 @@ _compile:
     mov  [var_latest], rdi
     add  rdi, 8
 
-    ; コード開始アドレスをr8に保存しておく
+    ; コード開始位置の保存アドレスをr8に保存しておく
     mov  r8, rdi
     add  rdi, 8
 
@@ -1233,7 +1234,7 @@ _compile:
     pop  rdi
     add  rdi, rdx    ; 辞書ポインタを更新
 
-    ; 辞書ポインタを64bit境界にアライメント
+    ; 64bit境界にアライメント
     add  rdi, 7
     and  rdi, ~7
 

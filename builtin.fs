@@ -2,6 +2,9 @@
 : cells  ( n -- n ) cell * ;
 : allot  ( n --   ) here +! ;
 
+: align  ( x n -- x )  1- dup  rot +  swap invert and ;
+: cell-align  ( x -- x )  8 align ;
+
 : DEC  ( -- )  10 base ! ;
 : HEX  ( -- )  16 base ! ;
 
@@ -183,7 +186,7 @@ var: private-latest
 var: reveal-start
 
 : private/  ( -- )  latest @ private-latest !  0 reveal-start ! ;
-: reveal>>  ( -- )  here @ reveal-start ! ;
+: reveal>>  ( -- )  here @ cell-align reveal-start ! ;
 : /private  ( -- )
    private-latest @
    reveal-start @  ?dup if ! exit then  latest ! ;
