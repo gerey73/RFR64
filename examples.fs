@@ -230,16 +230,16 @@ c-library /lib/x86_64-linux-gnu/librt.so.1
    name: clock_gettime  with: 2  as: clock-gettime
 end
 
-record Timespec
-  cell field: >sec
-  64 cells field: >nsec
-end
+here @ 16 align here !
+here @ 4 cells allot const> tickbuff
 
-create tickbuff 16 cells allot
+: ns>ms   ( ns  -- ms )  >fp 1000000 >fp  f/ fp> ;
+: sec>ms  ( sec -- ms )  1000 * ;
 
-: tick  ( -- us )
-   0 tickbuff 16 + clock-gettime  0<> if ." failure" cr exit then
-   tickbuff  8 cells  dump ;
+: tick  ( -- ms )
+   0 tickbuff clock-gettime  0<> if ." failure" cr exit then
+   tickbuff @ sec>ms  tickbuff cell + @ ns>ms  + ;
+
 
 | Curses
 | ------------------------------------------------------------------------------
@@ -275,4 +275,10 @@ end
 
 | Benchmark
 | ------------------------------------------------------------------------------
-: fib  ( n -- x )  dup 2 <  if exit then  1- dup recur  swap 1- recur +  ;
+: fib  ( n -- x )
+   dup 2 <  if exit then
+   1- dup recur  swap 1- recur +  ; optimize
+: time ( a --   )
+   tick >r  >code call  tick r> -
+   ." elapsed " . ." ms" cr ;
+: fib-bench  ( -- )  ." 39 fib ..." cr 39 ' fib time ;

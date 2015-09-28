@@ -465,7 +465,7 @@ reveal>>
    : dump  ( a u -- )
       dump-count-reset
       HEX
-      dotimes  over + c@  dup  byte.  dump-ascii  end
+      dotimes  1- over + c@  dup  byte.  dump-ascii  end
       drop dumpcount @ ?dup  if 3 * spaces byte. then
-      DEC ;
+      DEC drop ;
 /private
