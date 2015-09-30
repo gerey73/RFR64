@@ -131,6 +131,21 @@ create strbuff 512 allot    ( 文字列リテラル用バッファ )
    execute-mode?  if print exit then
    [compile] print ; immediate
 
+( 文字列比較 ----------------------------------------------------------------- )
+: 3drop  ( x x x -- )  2drop drop ;
+
+: block-eq  ( a a' u -- ? )
+   dup 0<=  if 3drop 1 exit then  ( 同じだった )
+   -rot 2dup c@ swap c@ <>  ( u a a' ? )
+   if 3drop 0 exit then     ( 文字が違った )  ( u a a' )
+   1+ -rot 1+ swap 1-  ( a' a u )  trec ;
+
+: str-eq  ( a u  a' u' -- ? )
+   | 文字列比較
+   rot over <>          ( a a' u ? )
+   if 3drop 0 exit then ( 長さが違った )
+   block-eq ;
+
 
 | Arithmetic
 | ------------------------------------------------------------------------------
@@ -139,6 +154,7 @@ create strbuff 512 allot    ( 文字列リテラル用バッファ )
    rot swap over ( lo x hi x )
    <=  if 2drop 0 exit then  ( lo x )
    >   if       0 exit then  1 ;
+
 
 | Logical
 | ------------------------------------------------------------------------------
