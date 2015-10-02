@@ -767,9 +767,10 @@ _flagaddr:
     ret
 
 _find:
-    push rbx              ; TOS退避
-    mov  rbx, [var_latest]    ; 検索開始位置
-    mov  rcx, rdx         ; 長さをrcxに
+    push rbx                  ; TOS退避
+    mov  rbx, [var_context]    ; 検索開始位置
+    mov  rbx, [rbx]
+    mov  rcx, rdx             ; 長さをrcxに
 
 .find:
     ; 長さが同じかどうか調べる
@@ -1213,9 +1214,11 @@ _compile:
     and  rdi, ~7
 
     ; latest更新
-    mov  rax, [var_latest]
+    mov  rax, [var_context]
+    mov  rax, [rax]
     mov  [rdi], rax
-    mov  [var_latest], rdi
+    mov  rax, [var_context]
+    mov  [rax], rdi
     add  rdi, 8
 
     ; コード開始位置の保存アドレスをr8に保存しておく
@@ -1255,7 +1258,8 @@ _compile:
 ;; immediate  ( -- )
 ;; latestワードのimmediateフラグをトグルする。
     defcode "immediate", f_immediate, immediate
-    mov  rdi, [var_latest]
+    mov  rdi, [var_context]
+    mov  rdi, [rdi]
     call _flagaddr
     mov  al, [rdi]
     xor  al, f_immediate
@@ -1265,7 +1269,8 @@ _compile:
 ;; hidden  ( -- )
 ;; latestワードのhiddenフラグをトグルする。
     defcode "hidden", 0, hidden
-    mov  rdi, [var_latest]
+    mov  rdi, [var_context]
+    mov  rdi, [rdi]
     call _flagaddr
     mov  al, [rdi]
     xor  al, f_hidden
@@ -2006,7 +2011,12 @@ sign128f_mask:
 ;; 変数
 ;; -------------------------------------------------------------------------------------------------
     defcode "latest", 0, v_latest
-    mov  rax, var_latest
+    mov  rax, [var_context]
+    DPUSH rax
+    ret
+
+    defcode "context", 0, v_context
+    mov  rax, var_context
     DPUSH rax
     ret
 
@@ -2037,7 +2047,8 @@ var_rs0: dq 0
 var_here: dq 0
 var_h0:   dq 0
 
-var_latest: dq prev_link
+var_latest:  dq prev_link
+var_context: dq var_latest
 
 section     .bss
 alignb 8
