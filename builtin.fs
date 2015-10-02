@@ -485,3 +485,75 @@ reveal>>
       drop dumpcount @ ?dup  if 3 * spaces byte. then
       DEC drop ;
 /private
+
+private/
+   : show-name  ( a -- )
+      2 cells + 3 + dup ( -- a a )
+      1- c@          ( -- a u )
+      print space ;
+   : word-list  ( a -- )
+      ?dup 0=  if cr exit then
+      dup show-name @ trec ;
+reveal>>
+   : word-list  ( -- ) latest @ word-list ;
+/private
+
+
+| Vocabulary
+| ------------------------------------------------------------------------------
+| ボキャブラリを生成する。
+|
+| ボキャブラリワードは、create does>によって以下のようなデータを持つ
+| [ (1) ボキャブラリ呼び出し時点のlatestへのリンク(空のヘッダ分の4cell) ]
+| [ (2) latest保存場所 (1 cell) ]
+| [ (3) context保存場所 (1 cell) ]
+|
+| a) ボキャブラリを使用するだけでcontextは変更しない場合、(1)に現在のlatestを
+| 書き込み、latestを(2)から読み込んでそれに書き換える。
+|
+| b) ボキャブラリのを作成する場合、(1)に現在のlatestを書き込み、(2)に
+| (1)のアドレスを書き込み、(3)に現在のcontextを保存し、最後に
+| contextを(2)のアドレスにする。
+| 作成を終了する際は、contextを(3)から戻す。ボキャブラリワードはcreateの時点で
+| (3)に保存したcontextのlatestになっている。
+private/
+   context @ const> core-context
+   : >voc-latest      ( a -- a )  ;
+   : >voc-ctx         ( a -- a )  4 cells + ;
+   : >voc-before-ctx  ( a -- a )  5 cells + ;
+
+   : 3ind cr 3 spaces drop ;
+   : h  ( a -- a ) HEX
+      ." ctx:" context @ .
+      ." latest:"  latest @ .
+      3ind dup dup . @ .
+      3ind dup 4 cells + dup . @ .
+      3ind dup 5 cells + dup . @ .
+      3ind ." context:" context @ .
+      3ind ." latest:" latest @ .
+      word-list
+      cr DEC ;
+
+   ( ボキャブラリ使用 )
+   : save-now-latest  ( a -- )  >voc-latest latest @ swap ! ;
+   : update-latest    ( a -- )  >voc-ctx @  latest ! ;
+   : use-voc  ( a -- )  dup save-now-latest update-latest ;
+
+   ( ボキャブラリ作成 )
+   : save-ctx-link  ( a -- )  dup >voc-latest swap >voc-ctx ! ;
+   : save-now-ctx   ( a -- )  >voc-before-ctx context @ swap ! ;
+   : set-now-ctx    ( a -- )  >voc-ctx context ! ;
+   : prepare-voc  ( a -- )
+      dup save-now-latest
+      dup save-ctx-link
+      dup save-now-ctx
+      set-now-ctx ;
+   : close-voc  ( a -- )  >voc-before-ctx @ context ! ;
+reveal>>
+   : vocabulary  ( -- a )
+      create  here @  6 cells allot  ( -- a )
+              dup prepare-voc        ( -- a )
+              ' close-voc scs-push ;
+
+   : Core  ( -- )  core-context dup  @ latest !  context ! ;
+/private
