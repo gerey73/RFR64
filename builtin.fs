@@ -86,11 +86,11 @@ create strbuff 512 allot    ( 文字列リテラル用バッファ )
 : litstr  ( -- a u )
    | コンパイルして使う。これがcallされた次の4byteに長さ、それ以降に文字列が
    | 置かれてるとして、長さとアドレスを返し、文字列部分をスキップする。
-   r>
-   dup 4 +   ( r a )
-   over 4c@  ( r a u )
+   r>        ( r  リターン先                       )
+   dup 4 +   ( r a                                 )
+   over 4c@  ( r a u                               )
    rot 4 +   ( a u r  文字数を格納した位置を飛ばす )
-   over +    ( a u r  文字数分飛ばす )
+   over +    ( a u r  文字数分飛ばす               )
    >r ;
 
 : [char]  ( -- )
@@ -135,9 +135,9 @@ create strbuff 512 allot    ( 文字列リテラル用バッファ )
 : 3drop  ( x x x -- )  2drop drop ;
 
 : block-eq  ( a a' u -- ? )
-   dup 0<=  if 3drop 1 exit then  ( 同じだった )
-   -rot 2dup c@ swap c@ <>  ( u a a' ? )
-   if 3drop 0 exit then     ( 文字が違った )  ( u a a' )
+   dup 0<=  if 3drop 1 exit then  ( 比較残りが0、同じだった )
+   -rot 2dup c@ swap c@ <>        ( u a a' ?  同じか?       )
+   if 3drop 0 exit then           ( 違った / u a a'         )
    1+ -rot 1+ swap 1-  ( a' a u )  trec ;
 
 : str-eq  ( a u  a' u' -- ? )
